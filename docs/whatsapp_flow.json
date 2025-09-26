@@ -1,0 +1,525 @@
+{
+  "version": "1.1",
+  "name": "DIBEA WhatsApp Bot Flow",
+  "description": "State machine para bot WhatsApp com agentes de IA para gestão de bem-estar animal",
+  "initial_state": "welcome",
+  "context": {
+    "user_phone": null,
+    "user_name": null,
+    "current_flow": null,
+    "collected_data": {},
+    "ai_context": {},
+    "session_id": null,
+    "municipality": null
+  },
+  "states": {
+    "welcome": {
+      "type": "message",
+      "message": {
+        "text": "🐾 Olá! Sou o assistente virtual da *DIBEA* - Sistema de Bem-Estar Animal.\n\nComo posso ajudá-lo hoje?\n\n1️⃣ Adotar um animal\n2️⃣ Fazer uma denúncia\n3️⃣ Reportar animal perdido/encontrado\n4️⃣ Agendar castração/vacinação\n5️⃣ Consultar RGA\n6️⃣ Falar com atendente\n\nDigite o número da opção ou descreva sua necessidade.",
+        "buttons": [
+          {"id": "adopt", "title": "🏠 Adoção"},
+          {"id": "report", "title": "📢 Denúncia"},
+          {"id": "lost_pet", "title": "🔍 Pet Perdido"}
+        ]
+      },
+      "transitions": {
+        "1": "adoption_start",
+        "adopt": "adoption_start",
+        "adoção": "adoption_start",
+        "adotar": "adoption_start",
+        "2": "report_start",
+        "report": "report_start",
+        "denúncia": "report_start",
+        "denuncia": "report_start",
+        "3": "lost_pet_start",
+        "lost_pet": "lost_pet_start",
+        "perdido": "lost_pet_start",
+        "encontrado": "lost_pet_start",
+        "4": "campaign_start",
+        "castração": "campaign_start",
+        "vacinação": "campaign_start",
+        "5": "rga_query",
+        "rga": "rga_query",
+        "6": "transfer_human",
+        "atendente": "transfer_human",
+        "default": "ai_processing"
+      }
+    },
+    "ai_processing": {
+      "type": "ai_agent",
+      "agent_config": {
+        "model": "gpt-4",
+        "temperature": 0.7,
+        "max_tokens": 500,
+        "system_prompt": "Você é um especialista em bem-estar animal municipal com conhecimento profundo em legislação, protocolos veterinários e políticas públicas.\n\nCONTEXTO MUNICIPAL: {{municipality_context}}\nDATA/HORA ATUAL: {{current_datetime}}\nHISTÓRICO DA CONVERSA: {{conversation_summary}}\n\nSUA FUNÇÃO:\n1. Analisar mensagens do cidadão com precisão técnica\n2. Identificar intenções específicas (adoção, denúncia, campanha, RGA, emergência)\n3. Fornecer orientações baseadas em conhecimento especializado\n4. Direcionar para fluxos apropriados quando necessário\n5. Manter tom empático e profissional\n\nCRITÉRIOS DE CLASSIFICAÇÃO:\n- EMERGÊNCIA: Risco iminente, animal em sofrimento agudo\n- DENÚNCIA: Relatos de maus-tratos, abandono, negligência\n- ADOÇÃO: Interesse em adotar, informações sobre animais\n- SERVIÇOS: Campanhas, RGA, microchip, consultas\n- INFORMAÇÃO: Dúvidas gerais, orientações, legislação\n\nRESTRIÇÕES:\n- NUNCA forneça diagnósticos médicos veterinários\n- SEMPRE cite fontes quando mencionar legislação\n- JAMAIS minimize preocupações do cidadão\n- SEMPRE ofereça alternativas quando não puder ajudar diretamente",
+        "context_retrieval": true,
+        "knowledge_base": "dibea_municipal_knowledge",
+        "rag_config": {
+          "similarity_threshold": 0.85,
+          "max_context_length": 2000,
+          "include_sources": true
+        }
+      },
+      "transitions": {
+        "intent_adoption": "adoption_start",
+        "intent_report": "report_start",
+        "intent_lost_pet": "lost_pet_start",
+        "intent_campaign": "campaign_start",
+        "intent_rga": "rga_query",
+        "intent_general": "ai_response",
+        "intent_transfer": "transfer_human",
+        "default": "ai_response"
+      }
+    },
+    "ai_response": {
+      "type": "message",
+      "message": {
+        "text": "{{ai_response}}\n\nPosso ajudá-lo com mais alguma coisa? Digite *menu* para ver as opções principais.",
+        "buttons": [
+          {"id": "menu", "title": "📋 Menu Principal"},
+          {"id": "transfer", "title": "👤 Falar com Atendente"}
+        ]
+      },
+      "transitions": {
+        "menu": "welcome",
+        "transfer": "transfer_human",
+        "default": "ai_processing"
+      }
+    },
+    "adoption_start": {
+      "type": "message",
+      "message": {
+        "text": "🏠 *Processo de Adoção*\n\nQue ótimo que você quer adotar! 🎉\n\nPara começar, preciso saber:\n\n1️⃣ Ver animais disponíveis\n2️⃣ Já tenho um animal em mente\n3️⃣ Quero orientações sobre adoção\n\nQual opção você escolhe?",
+        "buttons": [
+          {"id": "view_animals", "title": "👀 Ver Animais"},
+          {"id": "specific_animal", "title": "🎯 Animal Específico"},
+          {"id": "adoption_info", "title": "ℹ️ Informações"}
+        ]
+      },
+      "transitions": {
+        "1": "adoption_list_animals",
+        "view_animals": "adoption_list_animals",
+        "2": "adoption_specific_animal",
+        "specific_animal": "adoption_specific_animal",
+        "3": "adoption_info",
+        "adoption_info": "adoption_info",
+        "default": "adoption_clarify"
+      }
+    },
+    "adoption_list_animals": {
+      "type": "api_call",
+      "api_config": {
+        "endpoint": "/api/v1/animais",
+        "method": "GET",
+        "params": {
+          "status": "DISPONIVEL",
+          "limit": 6
+        }
+      },
+      "message": {
+        "text": "🐕🐱 *Animais Disponíveis para Adoção*\n\n{{#each animals}}\n*{{name}}* - {{species}} {{breed}}\n{{age}} - {{size}} - {{temperament}}\n📸 {{photo_url}}\n\n{{/each}}\nPara mais informações sobre um animal, digite o nome dele.\n\nOu digite *filtros* para buscar por características específicas.",
+        "buttons": [
+          {"id": "filters", "title": "🔍 Filtros"},
+          {"id": "schedule_visit", "title": "📅 Agendar Visita"},
+          {"id": "adoption_process", "title": "📋 Como Adotar"}
+        ]
+      },
+      "transitions": {
+        "filters": "adoption_filters",
+        "schedule_visit": "adoption_schedule_visit",
+        "adoption_process": "adoption_process_info",
+        "default": "adoption_animal_details"
+      }
+    },
+    "adoption_filters": {
+      "type": "message",
+      "message": {
+        "text": "🔍 *Filtros de Busca*\n\nVamos encontrar o pet ideal para você!\n\nEscolha as características que prefere:\n\n🐕 *Espécie:*\n1️⃣ Cães\n2️⃣ Gatos\n3️⃣ Outros\n\n📏 *Porte:*\n4️⃣ Pequeno\n5️⃣ Médio\n6️⃣ Grande\n\n👶 *Idade:*\n7️⃣ Filhote (até 1 ano)\n8️⃣ Jovem (1-3 anos)\n9️⃣ Adulto (3+ anos)\n\nDigite os números das opções que deseja (ex: 1,4,7) ou descreva o que procura.",
+        "buttons": [
+          {"id": "dogs_small", "title": "🐕 Cães Pequenos"},
+          {"id": "cats_any", "title": "🐱 Gatos"},
+          {"id": "puppies", "title": "👶 Filhotes"}
+        ]
+      },
+      "transitions": {
+        "dogs_small": "adoption_filtered_results",
+        "cats_any": "adoption_filtered_results",
+        "puppies": "adoption_filtered_results",
+        "default": "adoption_process_filters"
+      }
+    },
+    "adoption_schedule_visit": {
+      "type": "form",
+      "form_config": {
+        "fields": [
+          {
+            "name": "visitor_name",
+            "type": "text",
+            "label": "Seu nome completo",
+            "required": true,
+            "validation": "^[A-Za-zÀ-ÿ\\s]{2,100}$"
+          },
+          {
+            "name": "visitor_phone",
+            "type": "phone",
+            "label": "Telefone para contato",
+            "required": true,
+            "validation": "^[0-9]{10,11}$"
+          },
+          {
+            "name": "visitor_email",
+            "type": "email",
+            "label": "E-mail",
+            "required": false
+          },
+          {
+            "name": "preferred_date",
+            "type": "date",
+            "label": "Data preferida para visita",
+            "required": true,
+            "min_date": "today",
+            "max_date": "+30days"
+          },
+          {
+            "name": "preferred_time",
+            "type": "select",
+            "label": "Horário preferido",
+            "options": ["Manhã (8h-12h)", "Tarde (13h-17h)"],
+            "required": true
+          },
+          {
+            "name": "animal_interest",
+            "type": "text",
+            "label": "Animal de interesse (opcional)",
+            "required": false
+          }
+        ]
+      },
+      "message": {
+        "text": "📅 *Agendamento de Visita*\n\nVou coletar seus dados para agendar a visita ao abrigo.\n\nPor favor, forneça as informações solicitadas:"
+      },
+      "transitions": {
+        "form_complete": "adoption_visit_confirmation",
+        "form_cancel": "welcome"
+      }
+    },
+    "report_start": {
+      "type": "message",
+      "message": {
+        "text": "📢 *Sistema de Denúncias*\n\nObrigado por se preocupar com o bem-estar animal! 🙏\n\nQue tipo de situação você quer reportar?\n\n1️⃣ Maus-tratos\n2️⃣ Animal abandonado\n3️⃣ Animal ferido/doente\n4️⃣ Outros\n\n⚠️ *Em casos de emergência*, ligue diretamente para: *156*",
+        "buttons": [
+          {"id": "abuse", "title": "😢 Maus-tratos"},
+          {"id": "abandoned", "title": "🏠 Abandonado"},
+          {"id": "injured", "title": "🩹 Ferido"}
+        ]
+      },
+      "transitions": {
+        "1": "report_abuse",
+        "abuse": "report_abuse",
+        "maus": "report_abuse",
+        "2": "report_abandoned",
+        "abandoned": "report_abandoned",
+        "abandonado": "report_abandoned",
+        "3": "report_injured",
+        "injured": "report_injured",
+        "ferido": "report_injured",
+        "4": "report_other",
+        "outros": "report_other",
+        "default": "report_clarify"
+      }
+    },
+    "report_abuse": {
+      "type": "form",
+      "form_config": {
+        "context_injection": {
+          "municipality_policies": "{{municipality_context.denuncia_policies}}",
+          "legal_framework": "{{legal_context.maus_tratos}}",
+          "urgency_criteria": "{{urgency_classification_rules}}"
+        },
+        "validation_agent": {
+          "model": "gpt-4",
+          "system_prompt": "Você é um especialista em triagem de denúncias de maus-tratos animais. Analise as informações coletadas e classifique a urgência baseado nos critérios municipais.\n\nCRITÉRIOS DE URGÊNCIA:\n- CRÍTICA: Risco iminente de morte, violência em andamento\n- ALTA: Ferimentos graves, sofrimento evidente\n- MÉDIA: Negligência, condições inadequadas\n- BAIXA: Situações que requerem orientação\n\nGere automaticamente:\n1. Classificação de urgência\n2. Protocolo único\n3. Ações imediatas necessárias\n4. Prazo de resposta\n5. Necessidade de intervenção presencial",
+          "output_schema": {
+            "urgencia": "enum[CRITICA,ALTA,MEDIA,BAIXA]",
+            "protocolo": "string",
+            "acoes_imediatas": "array",
+            "prazo_resposta": "string",
+            "requer_presencial": "boolean"
+          }
+        },
+        "fields": [
+          {
+            "name": "report_type",
+            "type": "hidden",
+            "value": "MAUS_TRATOS"
+          },
+          {
+            "name": "description",
+            "type": "textarea",
+            "label": "Descreva a situação detalhadamente",
+            "required": true,
+            "min_length": 20,
+            "max_length": 2000,
+            "validation_prompt": "Analise se a descrição contém informações suficientes para classificar a urgência. Solicite detalhes específicos se necessário."
+          },
+          {
+            "name": "address",
+            "type": "text",
+            "label": "Endereço onde ocorreu",
+            "required": true,
+            "max_length": 200,
+            "validation": "address_format"
+          },
+          {
+            "name": "location_share",
+            "type": "location",
+            "label": "Compartilhar localização atual?",
+            "required": false
+          },
+          {
+            "name": "evidence_photos",
+            "type": "file",
+            "label": "Fotos como evidência (opcional)",
+            "required": false,
+            "accept": "image/*",
+            "max_files": 5,
+            "ai_analysis": {
+              "enabled": true,
+              "model": "gpt-4-vision",
+              "prompt": "Analise as imagens fornecidas e identifique sinais de maus-tratos, negligência ou sofrimento animal. Classifique a gravidade visual da situação."
+            }
+          },
+          {
+            "name": "anonymous",
+            "type": "boolean",
+            "label": "Denúncia anônima?",
+            "default": false
+          },
+          {
+            "name": "reporter_name",
+            "type": "text",
+            "label": "Seu nome (se não anônima)",
+            "required": false,
+            "condition": "anonymous == false"
+          },
+          {
+            "name": "reporter_phone",
+            "type": "phone",
+            "label": "Telefone para contato",
+            "required": false,
+            "condition": "anonymous == false"
+          }
+        ]
+      },
+      "message": {
+        "text": "😢 *Denúncia de Maus-tratos*\n\nVou coletar as informações necessárias para registrar sua denúncia.\n\n⚠️ *Importante:* Todas as denúncias são investigadas conforme {{municipality_context.investigation_protocol}}. Forneça o máximo de detalhes possível.\n\n📋 *Base Legal:* {{legal_context.maus_tratos.summary}}"
+      },
+      "transitions": {
+        "form_complete": "report_submission",
+        "form_cancel": "welcome"
+      }
+    },
+    "report_submission": {
+      "type": "api_call",
+      "api_config": {
+        "endpoint": "/api/v1/denuncias",
+        "method": "POST",
+        "data": "{{form_data}}"
+      },
+      "message": {
+        "text": "✅ *Denúncia Registrada com Sucesso!*\n\n📋 *Protocolo:* {{protocol_number}}\n📅 *Data:* {{submission_date}}\n🔍 *Status:* Em análise\n\nSua denúncia foi encaminhada para a equipe responsável. Você pode acompanhar o andamento através do protocolo.\n\n⏱️ *Prazo de resposta:* até 72 horas\n\nObrigado por ajudar a proteger os animais! 🐾",
+        "buttons": [
+          {"id": "track_report", "title": "📍 Acompanhar"},
+          {"id": "new_report", "title": "📢 Nova Denúncia"},
+          {"id": "menu", "title": "📋 Menu"}
+        ]
+      },
+      "transitions": {
+        "track_report": "report_tracking",
+        "new_report": "report_start",
+        "menu": "welcome",
+        "default": "welcome"
+      }
+    },
+    "lost_pet_start": {
+      "type": "message",
+      "message": {
+        "text": "🔍 *Pets Perdidos e Encontrados*\n\nVou ajudá-lo a encontrar ou reportar um animal!\n\n1️⃣ Perdi meu pet\n2️⃣ Encontrei um animal\n3️⃣ Procurar pets perdidos na região\n\nQual é sua situação?",
+        "buttons": [
+          {"id": "lost_my_pet", "title": "😢 Perdi meu Pet"},
+          {"id": "found_pet", "title": "🎯 Encontrei um Pet"},
+          {"id": "search_lost", "title": "🔍 Buscar Perdidos"}
+        ]
+      },
+      "transitions": {
+        "1": "lost_pet_report",
+        "lost_my_pet": "lost_pet_report",
+        "perdi": "lost_pet_report",
+        "2": "found_pet_report",
+        "found_pet": "found_pet_report",
+        "encontrei": "found_pet_report",
+        "3": "search_lost_pets",
+        "search_lost": "search_lost_pets",
+        "procurar": "search_lost_pets",
+        "default": "lost_pet_clarify"
+      }
+    },
+    "campaign_start": {
+      "type": "api_call",
+      "api_config": {
+        "endpoint": "/api/v1/campanhas",
+        "method": "GET",
+        "params": {
+          "status": "ATIVA",
+          "limit": 5
+        }
+      },
+      "message": {
+        "text": "💉 *Campanhas Ativas*\n\n{{#each campaigns}}\n🎯 *{{name}}*\n📅 {{start_date}} a {{end_date}}\n📍 {{location}}\n💰 {{#if free}}Gratuito{{else}}R$ {{price}}{{/if}}\n👥 Vagas: {{available_spots}}/{{total_spots}}\n\n{{/each}}\nPara se inscrever em uma campanha, digite o nome dela.\n\nOu digite *agendar* para agendar um atendimento individual.",
+        "buttons": [
+          {"id": "schedule_individual", "title": "📅 Agendar Individual"},
+          {"id": "campaign_info", "title": "ℹ️ Mais Informações"},
+          {"id": "requirements", "title": "📋 Requisitos"}
+        ]
+      },
+      "transitions": {
+        "schedule_individual": "schedule_individual_service",
+        "campaign_info": "campaign_detailed_info",
+        "requirements": "campaign_requirements",
+        "agendar": "schedule_individual_service",
+        "default": "campaign_registration"
+      }
+    },
+    "rga_query": {
+      "type": "message",
+      "message": {
+        "text": "📋 *Consulta RGA*\n\nPara consultar um Registro Geral Animal, preciso de:\n\n1️⃣ Número do RGA\n2️⃣ CPF do tutor\n3️⃣ Nome do animal\n\nComo você quer fazer a consulta?",
+        "buttons": [
+          {"id": "rga_number", "title": "🔢 Por Número RGA"},
+          {"id": "owner_cpf", "title": "👤 Por CPF"},
+          {"id": "pet_name", "title": "🐾 Por Nome do Pet"}
+        ]
+      },
+      "transitions": {
+        "1": "rga_by_number",
+        "rga_number": "rga_by_number",
+        "numero": "rga_by_number",
+        "2": "rga_by_cpf",
+        "owner_cpf": "rga_by_cpf",
+        "cpf": "rga_by_cpf",
+        "3": "rga_by_name",
+        "pet_name": "rga_by_name",
+        "nome": "rga_by_name",
+        "default": "rga_clarify"
+      }
+    },
+    "transfer_human": {
+      "type": "transfer",
+      "transfer_config": {
+        "department": "atendimento_geral",
+        "priority": "normal",
+        "context_summary": "{{conversation_summary}}",
+        "estimated_wait": "5-10 minutos"
+      },
+      "message": {
+        "text": "👤 *Transferindo para Atendente Humano*\n\nVocê será conectado com um de nossos atendentes em breve.\n\n⏱️ *Tempo estimado de espera:* 5-10 minutos\n\n📝 *Resumo da conversa:* {{context_summary}}\n\nPor favor, aguarde...",
+        "buttons": [
+          {"id": "cancel_transfer", "title": "❌ Cancelar"},
+          {"id": "callback", "title": "📞 Solicitar Retorno"}
+        ]
+      },
+      "transitions": {
+        "cancel_transfer": "welcome",
+        "callback": "schedule_callback",
+        "agent_available": "human_chat",
+        "timeout": "schedule_callback"
+      }
+    },
+    "error": {
+      "type": "message",
+      "message": {
+        "text": "❌ *Ops! Algo deu errado*\n\nDesculpe, ocorreu um erro inesperado. Vamos tentar novamente?\n\nSe o problema persistir, você pode:\n- Falar com um atendente\n- Tentar mais tarde\n- Ligar para: *156*",
+        "buttons": [
+          {"id": "retry", "title": "🔄 Tentar Novamente"},
+          {"id": "transfer", "title": "👤 Atendente"},
+          {"id": "menu", "title": "📋 Menu Principal"}
+        ]
+      },
+      "transitions": {
+        "retry": "welcome",
+        "transfer": "transfer_human",
+        "menu": "welcome",
+        "default": "welcome"
+      }
+    }
+  },
+  "global_commands": {
+    "menu": "welcome",
+    "início": "welcome",
+    "inicio": "welcome",
+    "ajuda": "help",
+    "help": "help",
+    "sair": "goodbye",
+    "tchau": "goodbye",
+    "obrigado": "goodbye",
+    "atendente": "transfer_human",
+    "humano": "transfer_human"
+  },
+  "ai_config": {
+    "default_model": "gpt-4",
+    "fallback_model": "gpt-3.5-turbo",
+    "temperature": 0.7,
+    "max_tokens": 500,
+    "timeout": 30,
+    "retry_attempts": 3,
+    "knowledge_base": {
+      "name": "dibea_municipal_knowledge",
+      "embedding_model": "text-embedding-ada-002",
+      "similarity_threshold": 0.8,
+      "max_context_length": 2000
+    },
+    "intent_classification": {
+      "confidence_threshold": 0.7,
+      "fallback_to_general": true
+    }
+  },
+  "integrations": {
+    "whatsapp": {
+      "webhook_url": "/api/v1/whatsapp/webhook",
+      "verify_token": "{{WHATSAPP_VERIFY_TOKEN}}",
+      "access_token": "{{WHATSAPP_ACCESS_TOKEN}}",
+      "phone_number_id": "{{WHATSAPP_PHONE_NUMBER_ID}}"
+    },
+    "api": {
+      "base_url": "{{API_BASE_URL}}",
+      "auth_header": "Authorization",
+      "auth_token": "Bearer {{API_TOKEN}}",
+      "timeout": 30
+    },
+    "storage": {
+      "type": "redis",
+      "connection": "{{REDIS_URL}}",
+      "session_ttl": 3600,
+      "context_ttl": 86400
+    }
+  },
+  "analytics": {
+    "track_events": [
+      "conversation_start",
+      "state_transition",
+      "form_submission",
+      "api_call",
+      "ai_interaction",
+      "human_transfer",
+      "conversation_end"
+    ],
+    "metrics": [
+      "response_time",
+      "completion_rate",
+      "satisfaction_score",
+      "transfer_rate",
+      "error_rate"
+    ]
+  }
+}

@@ -1,0 +1,1495 @@
+openapi: 3.0.3
+info:
+  title: DIBEA - Sistema de Gestão de Bem-Estar Animal
+  description: |
+    API completa para gestão municipal de bem-estar animal com funcionalidades de:
+    - Gestão de animais, tutores e adoções
+    - Sistema RGA e microchips
+    - Denúncias e campanhas
+    - Integração WhatsApp com IA
+    - Portal público e backoffice administrativo
+  version: 1.1.0
+  contact:
+    name: Equipe Dibea
+    email: api@dibea.com.br
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.dibea.com.br/v1
+    description: Produção
+  - url: https://staging-api.dibea.com.br/v1
+    description: Staging
+  - url: http://localhost:3000/v1
+    description: Desenvolvimento
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  # AUTENTICAÇÃO
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Login do usuário
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, senha]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@municipio.gov.br
+                senha:
+                  type: string
+                  format: password
+                  example: senha123
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  usuario:
+                    $ref: '#/components/schemas/Usuario'
+                  expires_in:
+                    type: integer
+                    example: 3600
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Autenticação]
+      summary: Renovar token de acesso
+      responses:
+        '200':
+          description: Token renovado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  # ANIMAIS
+  /animais:
+    get:
+      tags: [Animais]
+      summary: Listar animais
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DISPONIVEL, ADOTADO, TRATAMENTO, OBITO, PERDIDO]
+        - name: especie
+          in: query
+          schema:
+            type: string
+            enum: [CANINO, FELINO, OUTROS]
+        - name: porte
+          in: query
+          schema:
+            type: string
+            enum: [PEQUENO, MEDIO, GRANDE]
+        - name: search
+          in: query
+          description: Busca por nome ou características
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de animais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Animal'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Animais]
+      summary: Cadastrar novo animal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+      responses:
+        '201':
+          description: Animal cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /animais/{id}:
+    get:
+      tags: [Animais]
+      summary: Obter animal por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do animal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalDetalhado'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Animais]
+      summary: Atualizar animal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+      responses:
+        '200':
+          description: Animal atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+
+    delete:
+      tags: [Animais]
+      summary: Excluir animal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Animal excluído com sucesso
+
+  /animais/{id}/fotos:
+    post:
+      tags: [Animais]
+      summary: Upload de fotos do animal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                fotos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                principal:
+                  type: integer
+                  description: Índice da foto principal (0-based)
+      responses:
+        '201':
+          description: Fotos enviadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FotoAnimal'
+
+  # TUTORES
+  /tutores:
+    get:
+      tags: [Tutores]
+      summary: Listar tutores
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ATIVO, INATIVO, BLACKLIST]
+        - name: search
+          in: query
+          description: Busca por nome, CPF ou email
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de tutores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tutor'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Tutores]
+      summary: Cadastrar novo tutor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TutorInput'
+      responses:
+        '201':
+          description: Tutor cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tutor'
+
+  # ADOÇÕES
+  /adocoes:
+    get:
+      tags: [Adoções]
+      summary: Listar adoções
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SOLICITADA, EM_ANALISE, APROVADA, REJEITADA, CONCLUIDA, CANCELADA]
+        - name: data_inicio
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: data_fim
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lista de adoções
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Adocao'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Adoções]
+      summary: Solicitar adoção
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdocaoInput'
+      responses:
+        '201':
+          description: Solicitação de adoção criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Adocao'
+
+  /adocoes/{id}/aprovar:
+    post:
+      tags: [Adoções]
+      summary: Aprovar adoção
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                observacoes:
+                  type: string
+      responses:
+        '200':
+          description: Adoção aprovada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Adocao'
+
+  # DENÚNCIAS
+  /denuncias:
+    get:
+      tags: [Denúncias]
+      summary: Listar denúncias
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ABERTA, EM_ANDAMENTO, RESOLVIDA, ARQUIVADA]
+        - name: urgencia
+          in: query
+          schema:
+            type: string
+            enum: [BAIXA, MEDIA, ALTA, CRITICA]
+        - name: tipo
+          in: query
+          schema:
+            type: string
+            enum: [MAUS_TRATOS, ABANDONO, ANIMAL_FERIDO, OUTROS]
+      responses:
+        '200':
+          description: Lista de denúncias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Denuncia'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Denúncias]
+      summary: Criar nova denúncia
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DenunciaInput'
+      responses:
+        '201':
+          description: Denúncia criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Denuncia'
+
+  # RGA
+  /rga:
+    get:
+      tags: [RGA]
+      summary: Listar registros RGA
+      responses:
+        '200':
+          description: Lista de RGAs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RGA'
+
+    post:
+      tags: [RGA]
+      summary: Emitir novo RGA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RGAInput'
+      responses:
+        '201':
+          description: RGA emitido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RGA'
+
+  /rga/{numero}/certificado:
+    get:
+      tags: [RGA]
+      summary: Baixar certificado RGA em PDF
+      parameters:
+        - name: numero
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Certificado PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # WHATSAPP
+  /whatsapp/webhook:
+    post:
+      tags: [WhatsApp]
+      summary: Webhook do WhatsApp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processado
+
+  /whatsapp/conversas:
+    get:
+      tags: [WhatsApp]
+      summary: Listar conversas ativas
+      responses:
+        '200':
+          description: Lista de conversas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversaWhatsApp'
+
+  # CAMPANHAS
+  /campanhas:
+    get:
+      tags: [Campanhas]
+      summary: Listar campanhas
+      parameters:
+        - name: tipo
+          in: query
+          schema:
+            type: string
+            enum: [CASTRACAO, VACINACAO, MICROCHIPAGEM, EDUCATIVA]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PLANEJADA, ATIVA, ENCERRADA, CANCELADA]
+      responses:
+        '200':
+          description: Lista de campanhas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Campanha'
+
+    post:
+      tags: [Campanhas]
+      summary: Criar nova campanha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampanhaInput'
+      responses:
+        '201':
+          description: Campanha criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campanha'
+
+  # AGENDAMENTOS
+  /agendamentos:
+    get:
+      tags: [Agendamentos]
+      summary: Listar agendamentos
+      parameters:
+        - name: tipo
+          in: query
+          schema:
+            type: string
+            enum: [VISITA_ADOCAO, CAMPANHA, CONSULTA, OUTROS]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [AGENDADO, CONFIRMADO, REALIZADO, CANCELADO, FALTOU]
+        - name: data_inicio
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: data_fim
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lista de agendamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agendamento'
+
+    post:
+      tags: [Agendamentos]
+      summary: Criar novo agendamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendamentoInput'
+      responses:
+        '201':
+          description: Agendamento criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agendamento'
+
+  # MICROCHIPS
+  /microchips:
+    get:
+      tags: [Microchips]
+      summary: Listar microchips
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ESTOQUE, APLICADO, PERDIDO]
+      responses:
+        '200':
+          description: Lista de microchips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Microchip'
+
+    post:
+      tags: [Microchips]
+      summary: Registrar novo microchip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MicrochipInput'
+      responses:
+        '201':
+          description: Microchip registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Microchip'
+
+  /microchips/{numero}/aplicar:
+    post:
+      tags: [Microchips]
+      summary: Aplicar microchip em animal
+      parameters:
+        - name: numero
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [animal_id, veterinario_responsavel]
+              properties:
+                animal_id:
+                  type: string
+                  format: uuid
+                veterinario_responsavel:
+                  type: string
+                local_aplicacao:
+                  type: string
+      responses:
+        '200':
+          description: Microchip aplicado com sucesso
+
+  # DASHBOARD E RELATÓRIOS
+  /dashboard/kpis:
+    get:
+      tags: [Dashboard]
+      summary: KPIs do dashboard
+      responses:
+        '200':
+          description: Indicadores principais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  animais_cadastrados:
+                    type: integer
+                  animais_disponiveis:
+                    type: integer
+                  adocoes_mes:
+                    type: integer
+                  denuncias_abertas:
+                    type: integer
+                  campanhas_ativas:
+                    type: integer
+
+  /relatorios/adocoes:
+    get:
+      tags: [Relatórios]
+      summary: Relatório de adoções
+      parameters:
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            enum: [mes, trimestre, semestre, ano]
+            default: mes
+        - name: formato
+          in: query
+          schema:
+            type: string
+            enum: [json, pdf, excel]
+            default: json
+      responses:
+        '200':
+          description: Relatório de adoções
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodo:
+                    type: string
+                  total_solicitacoes:
+                    type: integer
+                  total_aprovadas:
+                    type: integer
+                  total_concluidas:
+                    type: integer
+                  taxa_sucesso:
+                    type: number
+                  dados_por_mes:
+                    type: array
+                    items:
+                      type: object
+
+  /relatorios/denuncias:
+    get:
+      tags: [Relatórios]
+      summary: Relatório de denúncias
+      parameters:
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            enum: [mes, trimestre, semestre, ano]
+            default: mes
+      responses:
+        '200':
+          description: Relatório de denúncias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_denuncias:
+                    type: integer
+                  denuncias_resolvidas:
+                    type: integer
+                  tempo_medio_resolucao:
+                    type: number
+                  por_tipo:
+                    type: object
+                  por_urgencia:
+                    type: object
+                  mapa_calor:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        latitude:
+                          type: number
+                        longitude:
+                          type: number
+                        quantidade:
+                          type: integer
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        nome:
+          type: string
+        telefone:
+          type: string
+        tipo:
+          type: string
+          enum: [ADMIN, FUNCIONARIO, VETERINARIO, CIDADAO]
+        ativo:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Animal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        especie:
+          type: string
+          enum: [CANINO, FELINO, OUTROS]
+        raca:
+          type: string
+        sexo:
+          type: string
+          enum: [MACHO, FEMEA]
+        porte:
+          type: string
+          enum: [PEQUENO, MEDIO, GRANDE]
+        data_nascimento:
+          type: string
+          format: date
+        peso:
+          type: number
+          format: float
+        cor:
+          type: string
+        temperamento:
+          type: string
+        observacoes:
+          type: string
+        status:
+          type: string
+          enum: [DISPONIVEL, ADOTADO, TRATAMENTO, OBITO, PERDIDO]
+        qr_code:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AnimalInput:
+      type: object
+      required: [nome, especie, sexo, porte]
+      properties:
+        nome:
+          type: string
+          minLength: 2
+          maxLength: 100
+        especie:
+          type: string
+          enum: [CANINO, FELINO, OUTROS]
+        raca:
+          type: string
+          maxLength: 100
+        sexo:
+          type: string
+          enum: [MACHO, FEMEA]
+        porte:
+          type: string
+          enum: [PEQUENO, MEDIO, GRANDE]
+        data_nascimento:
+          type: string
+          format: date
+        peso:
+          type: number
+          format: float
+          minimum: 0.1
+          maximum: 200
+        cor:
+          type: string
+          maxLength: 50
+        temperamento:
+          type: string
+          maxLength: 500
+        observacoes:
+          type: string
+          maxLength: 1000
+
+    AnimalDetalhado:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          properties:
+            fotos:
+              type: array
+              items:
+                $ref: '#/components/schemas/FotoAnimal'
+            historico_medico:
+              type: array
+              items:
+                $ref: '#/components/schemas/HistoricoMedico'
+            microchip:
+              $ref: '#/components/schemas/Microchip'
+            rga:
+              $ref: '#/components/schemas/RGA'
+
+    FotoAnimal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        nome_arquivo:
+          type: string
+        ordem:
+          type: integer
+        principal:
+          type: boolean
+
+    Tutor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cpf:
+          type: string
+          pattern: '^[0-9]{11}$'
+        rg:
+          type: string
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+        endereco_completo:
+          type: string
+        cep:
+          type: string
+          pattern: '^[0-9]{8}$'
+        cidade:
+          type: string
+        estado:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        tipo_moradia:
+          type: string
+          enum: [CASA, APARTAMENTO, SITIO, OUTROS]
+        tem_experiencia:
+          type: boolean
+        observacoes:
+          type: string
+        status:
+          type: string
+          enum: [ATIVO, INATIVO, BLACKLIST]
+
+    TutorInput:
+      type: object
+      required: [cpf, nome, email, telefone, endereco_completo, cep, cidade, estado]
+      properties:
+        cpf:
+          type: string
+          pattern: '^[0-9]{11}$'
+        rg:
+          type: string
+        nome:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        telefone:
+          type: string
+          pattern: '^[0-9]{10,11}$'
+        endereco_completo:
+          type: string
+          maxLength: 200
+        cep:
+          type: string
+          pattern: '^[0-9]{8}$'
+        cidade:
+          type: string
+          maxLength: 100
+        estado:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        tipo_moradia:
+          type: string
+          enum: [CASA, APARTAMENTO, SITIO, OUTROS]
+        tem_experiencia:
+          type: boolean
+        observacoes:
+          type: string
+          maxLength: 1000
+
+    Adocao:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        data_solicitacao:
+          type: string
+          format: date
+        data_aprovacao:
+          type: string
+          format: date
+        data_entrega:
+          type: string
+          format: date
+        motivo_interesse:
+          type: string
+        observacoes_entrevista:
+          type: string
+        status:
+          type: string
+          enum: [SOLICITADA, EM_ANALISE, APROVADA, REJEITADA, CONCLUIDA, CANCELADA]
+        motivo_rejeicao:
+          type: string
+        animal:
+          $ref: '#/components/schemas/Animal'
+        tutor:
+          $ref: '#/components/schemas/Tutor'
+
+    AdocaoInput:
+      type: object
+      required: [animal_id, tutor_id, motivo_interesse]
+      properties:
+        animal_id:
+          type: string
+          format: uuid
+        tutor_id:
+          type: string
+          format: uuid
+        motivo_interesse:
+          type: string
+          minLength: 10
+          maxLength: 1000
+
+    Denuncia:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        protocolo:
+          type: string
+        tipo:
+          type: string
+          enum: [MAUS_TRATOS, ABANDONO, ANIMAL_FERIDO, OUTROS]
+        descricao:
+          type: string
+        endereco:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        anonima:
+          type: boolean
+        urgencia:
+          type: string
+          enum: [BAIXA, MEDIA, ALTA, CRITICA]
+        status:
+          type: string
+          enum: [ABERTA, EM_ANDAMENTO, RESOLVIDA, ARQUIVADA]
+        resolucao:
+          type: string
+        data_resolucao:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    DenunciaInput:
+      type: object
+      required: [tipo, descricao, endereco]
+      properties:
+        tipo:
+          type: string
+          enum: [MAUS_TRATOS, ABANDONO, ANIMAL_FERIDO, OUTROS]
+        descricao:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        endereco:
+          type: string
+          maxLength: 200
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        anonima:
+          type: boolean
+          default: false
+        denunciante_nome:
+          type: string
+          maxLength: 100
+        denunciante_telefone:
+          type: string
+          pattern: '^[0-9]{10,11}$'
+        denunciante_email:
+          type: string
+          format: email
+
+    RGA:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: string
+        data_emissao:
+          type: string
+          format: date
+        data_vencimento:
+          type: string
+          format: date
+        valor_taxa:
+          type: number
+          format: decimal
+        pago:
+          type: boolean
+        certificado_url:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [ATIVO, VENCIDO, CANCELADO]
+        animal:
+          $ref: '#/components/schemas/Animal'
+        tutor:
+          $ref: '#/components/schemas/Tutor'
+
+    RGAInput:
+      type: object
+      required: [animal_id, tutor_id]
+      properties:
+        animal_id:
+          type: string
+          format: uuid
+        tutor_id:
+          type: string
+          format: uuid
+
+    Microchip:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero:
+          type: string
+        data_aplicacao:
+          type: string
+          format: date
+        veterinario_responsavel:
+          type: string
+        local_aplicacao:
+          type: string
+        status:
+          type: string
+          enum: [ESTOQUE, APLICADO, PERDIDO]
+
+    HistoricoMedico:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [VACINA, MEDICAMENTO, CIRURGIA, EXAME, CONSULTA]
+        nome_procedimento:
+          type: string
+        descricao:
+          type: string
+        data_aplicacao:
+          type: string
+          format: date
+        veterinario:
+          type: string
+        peso_animal:
+          type: number
+          format: decimal
+        observacoes:
+          type: string
+
+    ConversaWhatsApp:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        numero_telefone:
+          type: string
+        nome_contato:
+          type: string
+        status:
+          type: string
+          enum: [ATIVA, ENCERRADA, TRANSFERIDA]
+        contexto:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Campanha:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        tipo:
+          type: string
+          enum: [CASTRACAO, VACINACAO, MICROCHIPAGEM, EDUCATIVA]
+        descricao:
+          type: string
+        data_inicio:
+          type: string
+          format: date
+        data_fim:
+          type: string
+          format: date
+        local:
+          type: string
+        vagas_total:
+          type: integer
+        vagas_ocupadas:
+          type: integer
+        valor:
+          type: number
+          format: decimal
+        gratuita:
+          type: boolean
+        status:
+          type: string
+          enum: [PLANEJADA, ATIVA, ENCERRADA, CANCELADA]
+        created_at:
+          type: string
+          format: date-time
+
+    CampanhaInput:
+      type: object
+      required: [nome, tipo, data_inicio, data_fim, local, vagas_total]
+      properties:
+        nome:
+          type: string
+          minLength: 5
+          maxLength: 200
+        tipo:
+          type: string
+          enum: [CASTRACAO, VACINACAO, MICROCHIPAGEM, EDUCATIVA]
+        descricao:
+          type: string
+          maxLength: 1000
+        data_inicio:
+          type: string
+          format: date
+        data_fim:
+          type: string
+          format: date
+        local:
+          type: string
+          maxLength: 200
+        vagas_total:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        valor:
+          type: number
+          format: decimal
+          minimum: 0
+        gratuita:
+          type: boolean
+          default: true
+
+    Agendamento:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [VISITA_ADOCAO, CAMPANHA, CONSULTA, OUTROS]
+        data_hora:
+          type: string
+          format: date-time
+        observacoes:
+          type: string
+        status:
+          type: string
+          enum: [AGENDADO, CONFIRMADO, REALIZADO, CANCELADO, FALTOU]
+        motivo_cancelamento:
+          type: string
+        tutor:
+          $ref: '#/components/schemas/Tutor'
+        animal:
+          $ref: '#/components/schemas/Animal'
+        campanha:
+          $ref: '#/components/schemas/Campanha'
+        created_at:
+          type: string
+          format: date-time
+
+    AgendamentoInput:
+      type: object
+      required: [tipo, data_hora, tutor_id]
+      properties:
+        tipo:
+          type: string
+          enum: [VISITA_ADOCAO, CAMPANHA, CONSULTA, OUTROS]
+        data_hora:
+          type: string
+          format: date-time
+        observacoes:
+          type: string
+          maxLength: 500
+        tutor_id:
+          type: string
+          format: uuid
+        animal_id:
+          type: string
+          format: uuid
+        campanha_id:
+          type: string
+          format: uuid
+
+    MicrochipInput:
+      type: object
+      required: [numero]
+      properties:
+        numero:
+          type: string
+          pattern: '^[0-9]{15}$'
+          description: Número do microchip (15 dígitos)
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+        has_next:
+          type: boolean
+        has_prev:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "VALIDATION_ERROR"
+            message: "Dados de entrada inválidos"
+            details:
+              nome: "Campo obrigatório"
+
+    Unauthorized:
+      description: Não autorizado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Token de acesso inválido ou expirado"
+
+    Forbidden:
+      description: Acesso negado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "FORBIDDEN"
+            message: "Usuário não possui permissão para esta operação"
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NOT_FOUND"
+            message: "Recurso não encontrado"
+
+    InternalServerError:
+      description: Erro interno do servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "Erro interno do servidor"
+
+tags:
+  - name: Autenticação
+    description: Endpoints de autenticação e autorização
+  - name: Animais
+    description: Gestão de animais
+  - name: Tutores
+    description: Gestão de tutores/adotantes
+  - name: Adoções
+    description: Processo de adoção
+  - name: Denúncias
+    description: Sistema de denúncias
+  - name: RGA
+    description: Registro Geral Animal
+  - name: WhatsApp
+    description: Integração WhatsApp
+  - name: Campanhas
+    description: Campanhas de castração, vacinação e educação
+  - name: Agendamentos
+    description: Sistema de agendamentos
+  - name: Microchips
+    description: Gestão de microchips
+  - name: Dashboard
+    description: Indicadores e métricas
+  - name: Relatórios
+    description: Relatórios e analytics
