@@ -1,0 +1,42 @@
+{
+  "name": "dibea-monorepo",
+  "version": "1.0.0",
+  "description": "DIBEA - Sistema de Gestão de Bem-Estar Animal Municipal",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=@dibea/backend",
+    "dev:frontend": "npm run dev --workspace=@dibea/frontend",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=@dibea/backend",
+    "build:frontend": "npm run build --workspace=@dibea/frontend",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "npm run clean --workspaces && rm -rf node_modules",
+    "db:migrate": "npm run db:migrate --workspace=@dibea/backend",
+    "db:seed": "npm run db:seed --workspace=@dibea/backend",
+    "db:studio": "npm run db:studio --workspace=@dibea/backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "author": "Equipe Dibea",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dibea-postgres
+    environment:
+      POSTGRES_DB: dibea
+      POSTGRES_USER: dibea_user
+      POSTGRES_PASSWORD: dibea_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - dibea-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dibea_user -d dibea"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: dibea-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dibea-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: dibea-backend
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://dibea_user:dibea_password@postgres:5432/dibea
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dibea_jwt_secret_key_2024
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - dibea-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./apps/backend/logs:/app/logs
+
+  # Frontend
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: dibea-frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+    ports:
+      - "3001:3001"
+    networks:
+      - dibea-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  dibea-network:
+    driver: bridge

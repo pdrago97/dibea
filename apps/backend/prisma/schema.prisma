@@ -1,0 +1,200 @@
+// Prisma schema for SQLite demo
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Simplified models for demo
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String
+  role          String   // ADMIN, FUNCIONARIO, VETERINARIO, CIDADAO
+  municipalityId String? @map("municipality_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  municipality  Municipality? @relation(fields: [municipalityId], references: [id])
+  adoptions     Adoption[]
+  agentInteractions AgentInteraction[]
+  notifications Notification[]
+  createdTasks  Task[] @relation("TaskCreator")
+  assignedTasks Task[] @relation("TaskAssignee")
+
+  @@map("users")
+}
+
+model Municipality {
+  id        String   @id @default(uuid())
+  name      String
+  state     String
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  animals   Animal[]
+  users     User[]
+
+  @@map("municipalities")
+}
+
+model Animal {
+  id            String   @id @default(uuid())
+  name          String
+  species       String   // CANINO, FELINO, OUTROS
+  breed         String?
+  sex           String   // MACHO, FEMEA
+  age           Int?
+  weight        Float?
+  size          String?  // PEQUENO, MEDIO, GRANDE
+  color         String?
+  description   String?
+  status        String   @default("DISPONIVEL") // DISPONIVEL, ADOTADO, TRATAMENTO, OBITO
+  municipalityId String  @map("municipality_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  municipality  Municipality @relation(fields: [municipalityId], references: [id])
+  adoptions     Adoption[]
+  notifications Notification[]
+  tasks         Task[]
+
+  @@map("animals")
+}
+
+model Adoption {
+  id        String   @id @default(uuid())
+  animalId  String   @map("animal_id")
+  tutorId   String   @map("tutor_id")
+  status    String   @default("PENDENTE") // PENDENTE, APROVADA, REJEITADA
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  animal    Animal @relation(fields: [animalId], references: [id])
+  tutor     User   @relation(fields: [tutorId], references: [id])
+  notifications Notification[]
+  tasks     Task[]
+
+  @@map("adoptions")
+}
+
+model AgentInteraction {
+  id               String    @id @default(uuid())
+  userId           String?   @map("user_id")
+  agentName        String    @map("agent_name")
+  userInput        String    @map("user_input")
+  agentResponse    String    @map("agent_response")
+  responseTimeMs   Int       @map("response_time_ms")
+  success          Boolean   @default(true)
+  errorMessage     String?   @map("error_message")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user             User?     @relation(fields: [userId], references: [id])
+
+  @@map("agent_interactions")
+}
+
+model AgentMetrics {
+  id                     String   @id @default(uuid())
+  agentName              String   @map("agent_name")
+  date                   DateTime
+  totalInteractions      Int      @default(0) @map("total_interactions")
+  successfulInteractions Int      @default(0) @map("successful_interactions")
+  averageResponseTime    Float    @default(0) @map("average_response_time")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@unique([agentName, date])
+  @@map("agent_metrics")
+}
+
+model SystemAnalytics {
+  id          String   @id @default(uuid())
+  date        DateTime
+  metricName  String   @map("metric_name")
+  metricValue Float    @map("metric_value")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([date, metricName])
+  @@map("system_analytics")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  type        String   // ADOPTION, TASK, SYSTEM, ALERT, INFO
+  category    String   // ADOCAO, DENUNCIA, CAMPANHA, SISTEMA, VETERINARIO
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String   @default("UNREAD") // UNREAD, READ, ARCHIVED
+
+  // Relacionamentos opcionais
+  userId      String?  @map("user_id")
+  animalId    String?  @map("animal_id")
+  adoptionId  String?  @map("adoption_id")
+  taskId      String?  @map("task_id")
+
+  // Metadados para ações
+  actionType  String?  @map("action_type") // APPROVE, REJECT, VIEW, REDIRECT, COMPLETE
+  actionUrl   String?  @map("action_url")
+  actionData  String?  @map("action_data") // JSON string
+
+  // Timestamps
+  readAt      DateTime? @map("read_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User?     @relation(fields: [userId], references: [id])
+  animal      Animal?   @relation(fields: [animalId], references: [id])
+  adoption    Adoption? @relation(fields: [adoptionId], references: [id])
+  task        Task?     @relation(fields: [taskId], references: [id])
+
+  @@map("notifications")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  type        String   // ADOPTION_REVIEW, DOCUMENT_VERIFICATION, ANIMAL_UPDATE, SYSTEM_MAINTENANCE
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
+  // Relacionamentos
+  createdById String   @map("created_by_id")
+  assignedToId String? @map("assigned_to_id")
+  animalId    String?  @map("animal_id")
+  adoptionId  String?  @map("adoption_id")
+
+  // Metadados
+  metadata    String?  // JSON string para dados específicos da tarefa
+  dueDate     DateTime? @map("due_date")
+  completedAt DateTime? @map("completed_at")
+
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy   User      @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo  User?     @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  animal      Animal?   @relation(fields: [animalId], references: [id])
+  adoption    Adoption? @relation(fields: [adoptionId], references: [id])
+  notifications Notification[]
+
+  @@map("tasks")
+}
