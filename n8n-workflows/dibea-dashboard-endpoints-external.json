@@ -1,0 +1,209 @@
+{
+  "name": "DIBEA Dashboard Endpoints",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-featured-animals",
+        "options": {}
+      },
+      "id": "webhook-featured-animals",
+      "name": "Get Featured Animals",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-user-processes",
+        "options": {}
+      },
+      "id": "webhook-user-processes",
+      "name": "Get User Processes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-notifications",
+        "options": {}
+      },
+      "id": "webhook-notifications",
+      "name": "Get Notifications",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-dashboard-stats",
+        "options": {}
+      },
+      "id": "webhook-dashboard-stats",
+      "name": "Get Dashboard Stats",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-animal-timeline",
+        "options": {}
+      },
+      "id": "webhook-animal-timeline",
+      "name": "Get Animal Timeline",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-get-animal-profile",
+        "options": {}
+      },
+      "id": "webhook-animal-profile",
+      "name": "Get Animal Profile",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dibea-create-timeline-event",
+        "options": {}
+      },
+      "id": "webhook-create-timeline-event",
+      "name": "Create Timeline Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Router para diferentes endpoints DIBEA\nconst webhookPath = $node[\"Webhook\"].json.path;\nconst requestData = $json;\n\nconsole.log('📍 Endpoint chamado:', webhookPath);\nconsole.log('📦 Dados recebidos:', requestData);\n\nlet response = {};\n\nswitch(webhookPath) {\n  case 'dibea-get-featured-animals':\n    response = {\n      animals: [\n        {\n          id: '1',\n          name: 'Luna',\n          species: 'Cão',\n          breed: 'Labrador Mix',\n          age: '2 anos',\n          description: 'Carinhosa e brincalhona, adora crianças',\n          image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',\n          urgent: false,\n          municipality: 'São Paulo',\n          status: 'available',\n          createdAt: '2024-01-15T10:00:00Z',\n          updatedAt: '2024-01-15T10:00:00Z'\n        },\n        {\n          id: '2',\n          name: 'Milo',\n          species: 'Gato',\n          breed: 'Siamês',\n          age: '1 ano',\n          description: 'Calmo e independente, ideal para apartamento',\n          image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=200&fit=crop',\n          urgent: true,\n          municipality: 'São Paulo',\n          status: 'available',\n          createdAt: '2024-01-10T14:30:00Z',\n          updatedAt: '2024-01-10T14:30:00Z'\n        }\n      ],\n      total: 2,\n      message: 'Animais em destaque carregados com sucesso'\n    };\n    break;\n    \n  case 'dibea-get-user-processes':\n    response = {\n      processes: [\n        {\n          id: '1',\n          animalId: 'animal-123',\n          animalName: 'Rex',\n          animalImage: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=100&h=100&fit=crop',\n          status: 'pending',\n          createdAt: '2024-01-15T10:00:00Z',\n          updatedAt: '2024-01-15T10:00:00Z',\n          nextStep: 'Aguardando análise de documentos',\n          timeline: [\n            {\n              id: 'timeline-1',\n              event: 'Processo iniciado',\n              description: 'Processo de adoção foi iniciado',\n              timestamp: '2024-01-15T10:00:00Z',\n              agent: 'ADOPTION_AGENT'\n            }\n          ]\n        }\n      ],\n      total: 1,\n      message: 'Processos do usuário carregados com sucesso'\n    };\n    break;\n    \n  case 'dibea-get-notifications':\n    response = {\n      notifications: [\n        {\n          id: '1',\n          type: 'adoption',\n          title: 'Novo animal disponível',\n          message: 'Novo animal disponível para adoção na sua região',\n          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),\n          read: false,\n          priority: 'medium',\n          metadata: {\n            animalId: 'animal-456',\n            actionUrl: '/animals/animal-456'\n          }\n        },\n        {\n          id: '2',\n          type: 'process',\n          title: 'Processo atualizado',\n          message: 'Seu processo de adoção foi atualizado',\n          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),\n          read: false,\n          priority: 'high',\n          metadata: {\n            processId: 'proc-123',\n            actionUrl: '/citizen/processes/proc-123'\n          }\n        }\n      ],\n      unreadCount: 2,\n      message: 'Notificações carregadas com sucesso'\n    };\n    break;\n    \n  case 'dibea-get-dashboard-stats':\n    response = {\n      stats: {\n        totalAnimals: 150,\n        availableAnimals: 89,\n        adoptedAnimals: 61,\n        activeProcesses: 12,\n        completedAdoptions: 45,\n        pendingDocuments: 8\n      },\n      message: 'Estatísticas carregadas com sucesso'\n    };\n    break;\n    \n  case 'dibea-get-animal-timeline':\n    const animalId = requestData.animalId;\n    response = {\n      timeline: [\n        {\n          id: '1',\n          type: 'system',\n          title: 'Animal cadastrado no sistema',\n          description: 'Animal foi registrado no sistema DIBEA',\n          timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),\n          actor: {\n            id: 'system',\n            name: 'Sistema DIBEA',\n            type: 'system'\n          },\n          metadata: {\n            animalId,\n            status: 'registered'\n          }\n        },\n        {\n          id: '2',\n          type: 'health',\n          title: 'Exame veterinário inicial',\n          description: 'Animal passou por exame veterinário completo. Estado de saúde: bom',\n          timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),\n          actor: {\n            id: 'vet-1',\n            name: 'Dr. Maria Silva',\n            type: 'veterinarian'\n          },\n          metadata: {\n            animalId,\n            severity: 'low'\n          }\n        },\n        {\n          id: '3',\n          type: 'chat',\n          title: 'Consulta via chat',\n          description: 'Usuário perguntou sobre disponibilidade para adoção',\n          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),\n          actor: {\n            id: 'user-1',\n            name: 'João Santos',\n            type: 'user'\n          },\n          metadata: {\n            animalId,\n            agent: 'ANIMAL_AGENT'\n          }\n        }\n      ],\n      animalId,\n      message: 'Timeline do animal carregada com sucesso'\n    };\n    break;\n    \n  case 'dibea-get-animal-profile':\n    const profileAnimalId = requestData.animalId;\n    response = {\n      animal: {\n        id: profileAnimalId,\n        name: 'Luna',\n        species: 'Cão',\n        breed: 'Labrador Mix',\n        age: '2 anos',\n        description: 'Carinhosa e brincalhona, adora crianças',\n        image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=300&fit=crop',\n        status: 'available',\n        municipality: 'São Paulo',\n        createdAt: '2024-01-15T10:00:00Z',\n        updatedAt: '2024-01-20T14:30:00Z',\n        currentLocation: 'Abrigo Municipal São Paulo',\n        healthStatus: 'healthy'\n      },\n      message: 'Perfil do animal carregado com sucesso'\n    };\n    break;\n    \n  case 'dibea-create-timeline-event':\n    const eventId = 'event-' + Date.now();\n    response = {\n      success: true,\n      eventId,\n      message: 'Evento criado na timeline com sucesso',\n      event: {\n        id: eventId,\n        ...requestData,\n        timestamp: new Date().toISOString()\n      }\n    };\n    break;\n    \n  default:\n    response = {\n      error: 'Endpoint não encontrado',\n      availableEndpoints: [\n        'dibea-get-featured-animals',\n        'dibea-get-user-processes',\n        'dibea-get-notifications',\n        'dibea-get-dashboard-stats',\n        'dibea-get-animal-timeline',\n        'dibea-get-animal-profile',\n        'dibea-create-timeline-event'\n      ]\n    };\n}\n\nconsole.log('📤 Resposta enviada:', response);\n\nreturn response;"
+      },
+      "id": "endpoint-router",
+      "name": "Endpoint Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        800
+      ]
+    }
+  ],
+  "connections": {
+    "Get Featured Animals": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Processes": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Notifications": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dashboard Stats": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Animal Timeline": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Animal Profile": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Timeline Event": {
+      "main": [
+        [
+          {
+            "node": "Endpoint Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "dibea-dashboard-endpoints",
+  "meta": {
+    "instanceId": "dibea-n8n-instance"
+  }
+}

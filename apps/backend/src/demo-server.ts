@@ -9,6 +9,12 @@ const prisma = new PrismaClient();
 const PORT = 3000;
 const JWT_SECRET = 'demo-secret-key';
 
+// 🎯 CONFIGURAÇÃO: Forçar uso do n8n (LLM agents)
+const FORCE_N8N = false; // true = só n8n, false = fallback local se n8n falhar
+const USE_N8N_SIMULATION = false; // true = usa simulação para demonstrar integração
+const N8N_TIMEOUT = 60000; // 60 segundos para LLMs
+const N8N_WEBHOOK_URL = 'https://n8n-moveup-u53084.vm.elestio.app/webhook/dibea-master';
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -190,7 +196,7 @@ app.post('/api/v1/auth/register', async (req, res) => {
   }
 });
 
-// Agent Chat endpoint
+// Agent Chat endpoint with n8n integration
 app.post('/api/v1/agents/chat', async (req, res) => {
   try {
     const { message, context } = req.body;
@@ -202,7 +208,107 @@ app.post('/api/v1/agents/chat', async (req, res) => {
       });
     }
 
-    // Simple agent logic based on keywords
+    // 🧪 Modo simulação para demonstrar integração
+    if (USE_N8N_SIMULATION) {
+      console.log('🧪 Usando simulação n8n para:', message);
+
+      const mockResponse = generateN8nSimulation(message);
+
+      return res.json({
+        success: true,
+        response: mockResponse.message,
+        agent: mockResponse.agent,
+        confidence: mockResponse.confidence,
+        actions: mockResponse.actions,
+        source: 'n8n_simulation',
+        metadata: mockResponse.metadata
+      });
+    }
+
+    // Try n8n first, fallback to local processing
+    try {
+      console.log('🔄 Tentando n8n para:', message);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT);
+
+      console.log('🚀 Enviando para n8n:', {
+        url: N8N_WEBHOOK_URL,
+        payload: { userInput: message, context: context || {} }
+      });
+
+      const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          userInput: message,
+          sessionId: req.body.sessionId || `session-${Date.now()}`,
+          userId: req.body.userId || null,
+          context: context || {}
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('📡 Resposta n8n status:', n8nResponse.status);
+      console.log('📡 Resposta n8n headers:', Object.fromEntries(n8nResponse.headers.entries()));
+
+      if (n8nResponse.ok) {
+        const responseText = await n8nResponse.text();
+        console.log('📄 Resposta n8n raw:', responseText);
+
+        if (!responseText || responseText.trim() === '') {
+          throw new Error('n8n retornou resposta vazia');
+        }
+
+        let n8nData;
+        try {
+          n8nData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Erro ao parsear JSON do n8n:', parseError);
+          console.log('📄 Conteúdo recebido:', responseText);
+          throw new Error('n8n retornou resposta inválida (não JSON)');
+        }
+
+        console.log('✅ n8n respondeu com dados válidos:', n8nData);
+
+        return res.json({
+          success: true,
+          response: n8nData.message || n8nData.response || n8nData.text || 'Resposta do n8n recebida',
+          agent: n8nData.agent || 'n8n LLM Agent',
+          confidence: n8nData.confidence || 0.9,
+          actions: n8nData.actions || n8nData.quickReplies || [],
+          source: 'n8n',
+          metadata: n8nData.metadata || {},
+          data: n8nData.data
+        });
+      } else {
+        const errorText = await n8nResponse.text();
+        console.error('❌ n8n erro HTTP:', n8nResponse.status, errorText);
+        throw new Error(`n8n HTTP ${n8nResponse.status}: ${errorText}`);
+      }
+    } catch (n8nError) {
+      console.error('❌ n8n falhou:', n8nError.message);
+
+      if (FORCE_N8N) {
+        // Modo forçado: retorna erro em vez de fallback
+        return res.status(503).json({
+          success: false,
+          error: 'Sistema de LLM agents temporariamente indisponível',
+          message: 'O n8n com os agentes LLM não está respondendo. Tente novamente em alguns instantes.',
+          details: n8nError.message,
+          source: 'n8n_error'
+        });
+      }
+
+      console.log('⚠️ Usando fallback local (FORCE_N8N=false)');
+    }
+
+    // Fallback to local processing
     const response = await processAgentMessage(message, context);
 
     return res.json({
@@ -210,7 +316,8 @@ app.post('/api/v1/agents/chat', async (req, res) => {
       response: response.content,
       agent: response.agent,
       confidence: response.confidence,
-      actions: response.actions || []
+      actions: response.actions || [],
+      source: 'local'
     });
 
   } catch (error) {
@@ -619,6 +726,449 @@ app.post('/api/v1/graphrag/query', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('GraphRAG error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 🔍 DIAGNÓSTICO N8N - TESTA MÚLTIPLOS ENDPOINTS
+app.get('/api/v1/debug/n8n', async (req, res) => {
+  const endpoints = [
+    '/webhook/dibea-agent',
+    '/webhook/dibea-agent-router',
+    '/webhook/dibea-router',
+    '/webhook/dibea-main',
+    '/webhook/dibea-general',
+    '/webhook/dibea-animal',
+    '/webhook/chat-w-ontology'
+  ];
+
+  const results = [];
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔍 Testando: ${endpoint}`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`https://n8n-moveup-u53084.vm.elestio.app${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          userInput: 'teste de diagnóstico',
+          context: { debug: true }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseText = await response.text();
+
+      results.push({
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        bodyLength: responseText.length,
+        isEmpty: !responseText || responseText.trim() === '',
+        isJson: (() => {
+          try {
+            JSON.parse(responseText);
+            return true;
+          } catch {
+            return false;
+          }
+        })(),
+        body: responseText.length > 0 ? responseText.substring(0, 200) + (responseText.length > 200 ? '...' : '') : '',
+        working: response.status === 200 && responseText.length > 0
+      });
+
+    } catch (error) {
+      results.push({
+        endpoint,
+        error: error.message,
+        working: false
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    results,
+    summary: {
+      total: endpoints.length,
+      working: results.filter(r => r.working).length,
+      workingEndpoints: results.filter(r => r.working).map(r => r.endpoint)
+    }
+  });
+});
+
+// 🧪 TESTE DE INTEGRAÇÃO N8N - SIMULA RESPOSTA VÁLIDA
+app.post('/api/v1/agents/chat/test-n8n', async (req, res) => {
+  const { message } = req.body;
+
+  // Simula uma resposta válida do n8n para testar a integração
+  const mockN8nResponse = {
+    message: `🤖 **Resposta simulada do LLM Agent do n8n**\n\nVocê disse: "${message}"\n\nEsta é uma resposta simulada para testar a integração. O n8n deveria retornar algo assim quando configurado corretamente.`,
+    agent: 'DIBEA LLM Agent (Simulado)',
+    confidence: 0.95,
+    actions: [
+      { type: 'quick_reply', text: 'Cadastrar Animal', action: 'register_animal' },
+      { type: 'quick_reply', text: 'Buscar Animais', action: 'search_animals' },
+      { type: 'quick_reply', text: 'Ajuda', action: 'help' }
+    ],
+    metadata: {
+      workflow: 'DIBEA Agent Router - Main',
+      timestamp: new Date().toISOString(),
+      processed_by: 'n8n_llm_agent'
+    }
+  };
+
+  res.json({
+    success: true,
+    response: mockN8nResponse.message,
+    agent: mockN8nResponse.agent,
+    confidence: mockN8nResponse.confidence,
+    actions: mockN8nResponse.actions,
+    source: 'n8n_simulation',
+    metadata: mockN8nResponse.metadata
+  });
+});
+
+// 🧪 SIMULAÇÃO N8N - GERA RESPOSTAS COMO SE FOSSE O LLM AGENT
+function generateN8nSimulation(message: string) {
+  const lowerMessage = message.toLowerCase();
+
+  // Detecta intenção baseada na mensagem
+  let response = '';
+  let actions = [];
+  let agent = 'DIBEA LLM Agent (Simulado)';
+
+  if (lowerMessage.includes('cadastr') && lowerMessage.includes('animal')) {
+    response = `🐾 **Assistente de Cadastro de Animais**\n\nVou te ajudar a cadastrar um novo animal! Para isso, preciso de algumas informações:\n\n**📋 Dados Obrigatórios:**\n• Nome do animal\n• Espécie (Cão, Gato, Outros)\n• Sexo (Macho/Fêmea)\n• Porte (Pequeno, Médio, Grande)\n\n**📋 Dados Opcionais:**\n• Raça\n• Data de nascimento\n• Peso\n• Cor\n• Temperamento\n• Observações especiais\n\nVocê pode me fornecer essas informações agora ou uma de cada vez. Como prefere começar?`;
+
+    actions = [
+      { type: 'quick_reply', text: 'Abrir Formulário', action: 'open_form' },
+      { type: 'quick_reply', text: 'Informar por Chat', action: 'chat_form' },
+      { type: 'quick_reply', text: 'Ver Guia Completo', action: 'full_guide' }
+    ];
+    agent = 'Animal Agent (95%)';
+
+  } else if (lowerMessage.includes('buscar') || lowerMessage.includes('procur') || lowerMessage.includes('encontrar')) {
+    response = `🔍 **Busca de Animais**\n\nVou te ajudar a encontrar animais! Você pode buscar por:\n\n• **Espécie**: Cães, gatos, outros\n• **Porte**: Pequeno, médio, grande\n• **Localização**: Município específico\n• **Status**: Disponível para adoção\n• **Características**: Cor, raça, idade\n\nO que você está procurando especificamente?`;
+
+    actions = [
+      { type: 'quick_reply', text: 'Buscar Cães', action: 'search_dogs' },
+      { type: 'quick_reply', text: 'Buscar Gatos', action: 'search_cats' },
+      { type: 'quick_reply', text: 'Busca Avançada', action: 'advanced_search' }
+    ];
+
+  } else if (lowerMessage.includes('estatística') || lowerMessage.includes('dados') || lowerMessage.includes('relatório')) {
+    response = `📊 **Estatísticas do Sistema DIBEA**\n\nAqui estão os dados atuais:\n\n• **Animais cadastrados**: 1.247\n• **Disponíveis para adoção**: 892\n• **Adotados este mês**: 156\n• **Municípios ativos**: 23\n• **Usuários registrados**: 3.421\n\nQue tipo de relatório você gostaria de ver?`;
+
+    actions = [
+      { type: 'quick_reply', text: 'Relatório Completo', action: 'full_report' },
+      { type: 'quick_reply', text: 'Por Município', action: 'by_city' },
+      { type: 'quick_reply', text: 'Tendências', action: 'trends' }
+    ];
+
+  } else if (lowerMessage.includes('ajuda') || lowerMessage.includes('help') || lowerMessage.includes('como')) {
+    response = `🆘 **Central de Ajuda DIBEA**\n\nSou o assistente inteligente do DIBEA! Posso te ajudar com:\n\n🐾 **Cadastro de Animais**\n• Registrar novos animais\n• Upload de documentos\n• Gestão de tutores\n\n🔍 **Busca e Adoção**\n• Encontrar animais disponíveis\n• Processo de adoção\n• Acompanhamento\n\n📊 **Relatórios e Dados**\n• Estatísticas do sistema\n• Relatórios personalizados\n• Métricas de performance\n\nO que você gostaria de fazer?`;
+
+    actions = [
+      { type: 'quick_reply', text: 'Cadastrar Animal', action: 'register_animal' },
+      { type: 'quick_reply', text: 'Buscar Animais', action: 'search_animals' },
+      { type: 'quick_reply', text: 'Ver Estatísticas', action: 'view_stats' },
+      { type: 'quick_reply', text: 'Documentação', action: 'docs' }
+    ];
+
+  } else {
+    response = `🤖 **Assistente DIBEA**\n\nOlá! Sou o assistente inteligente do Sistema de Gestão de Bem-Estar Animal.\n\nVocê disse: "${message}"\n\nPosso te ajudar com:\n• Cadastro de animais\n• Busca e adoção\n• Relatórios e estatísticas\n• Gestão de procedimentos\n• Upload de documentos\n\nComo posso ajudar você hoje?`;
+
+    actions = [
+      { type: 'quick_reply', text: 'Cadastrar Animal', action: 'register_animal' },
+      { type: 'quick_reply', text: 'Buscar Animais', action: 'search_animals' },
+      { type: 'quick_reply', text: 'Ver Estatísticas', action: 'view_stats' },
+      { type: 'quick_reply', text: 'Ajuda', action: 'help' }
+    ];
+  }
+
+  return {
+    message: response,
+    agent,
+    confidence: 0.95,
+    actions,
+    metadata: {
+      workflow: 'DIBEA Agent Router - Main',
+      timestamp: new Date().toISOString(),
+      processed_by: 'n8n_llm_agent',
+      intent_detected: lowerMessage.includes('cadastr') ? 'register_animal' :
+                      lowerMessage.includes('buscar') ? 'search_animals' :
+                      lowerMessage.includes('estatística') ? 'view_stats' :
+                      lowerMessage.includes('ajuda') ? 'help' : 'general'
+    }
+  };
+}
+
+// 🧪 FUNÇÕES DE TESTE PARA ENTIDADES DIBEA
+
+async function testAnimalRegistration(data: any) {
+  try {
+    // Teste de cadastro de animal
+    const testAnimal = await prisma.animal.create({
+      data: {
+        name: data.name || 'Animal Teste',
+        species: data.species || 'CACHORRO',
+        breed: data.breed || 'SRD',
+        sex: data.sex || 'MACHO',
+        age: data.age || 2,
+        weight: data.weight || 15.5,
+        size: data.size || 'MEDIO',
+        color: data.color || 'Marrom',
+        description: data.description || 'Animal de teste criado automaticamente',
+        status: 'DISPONIVEL',
+        municipalityId: data.municipalityId || 'mun-demo-001'
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Animal cadastrado com sucesso',
+      animalId: testAnimal.id,
+      data: testAnimal
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao cadastrar animal',
+      error: error.message
+    };
+  }
+}
+
+async function testAdoptionProcess(data: any) {
+  try {
+    // Buscar um animal disponível
+    const availableAnimal = await prisma.animal.findFirst({
+      where: { status: 'DISPONIVEL' }
+    });
+
+    if (!availableAnimal) {
+      return {
+        success: false,
+        message: 'Nenhum animal disponível para adoção'
+      };
+    }
+
+    // Simular processo de adoção (precisa de um tutor existente)
+    const tutor = await prisma.user.findFirst({
+      where: { role: 'CIDADAO' }
+    });
+
+    if (!tutor) {
+      return {
+        success: false,
+        message: 'Nenhum cidadão encontrado para ser tutor'
+      };
+    }
+
+    const adoption = await prisma.adoption.create({
+      data: {
+        animalId: availableAnimal.id,
+        tutorId: tutor.id,
+        status: 'PENDENTE',
+        notes: `Adoção de teste para ${data.adopterName || 'Adotante Teste'} - ${data.adopterEmail || 'teste@email.com'}`
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Processo de adoção iniciado',
+      adoptionId: adoption.id,
+      animalName: availableAnimal.name,
+      data: adoption
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro no processo de adoção',
+      error: error.message
+    };
+  }
+}
+
+async function testUserManagement(data: any) {
+  try {
+    // Buscar usuários por tipo
+    const userStats = await prisma.user.groupBy({
+      by: ['role'],
+      _count: { id: true }
+    });
+
+    // Criar usuário de teste se solicitado
+    let newUser = null;
+    if (data.createUser) {
+      newUser = await prisma.user.create({
+        data: {
+          email: data.email || `teste${Date.now()}@dibea.com`,
+          name: data.name || 'Usuário Teste',
+          role: data.role || 'CIDADAO',
+          passwordHash: 'teste123', // Em produção seria hasheado
+          municipalityId: data.municipalityId || 'mun-demo-001'
+        }
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Gestão de usuários testada',
+      userStats,
+      newUser: newUser ? { id: newUser.id, email: newUser.email, role: newUser.role } : null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro na gestão de usuários',
+      error: error.message
+    };
+  }
+}
+
+async function testMunicipalityOperations(data: any) {
+  try {
+    // Estatísticas por município
+    const municipalityStats = await prisma.municipality.findMany({
+      include: {
+        _count: {
+          select: {
+            animals: true,
+            users: true
+          }
+        }
+      }
+    });
+
+    // Criar município de teste se solicitado
+    let newMunicipality = null;
+    if (data.createMunicipality) {
+      newMunicipality = await prisma.municipality.create({
+        data: {
+          name: data.name || `Município Teste ${Date.now()}`,
+          state: data.state || 'SP'
+        }
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Operações municipais testadas',
+      municipalityStats: municipalityStats.map(m => ({
+        id: m.id,
+        name: m.name,
+        state: m.state,
+        animalsCount: m._count.animals,
+        usersCount: m._count.users
+      })),
+      newMunicipality
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro nas operações municipais',
+      error: error.message
+    };
+  }
+}
+
+async function testAgentInteraction(data: any) {
+  try {
+    // Simular interação com agente
+    const interaction = await prisma.agentInteraction.create({
+      data: {
+        userId: data.userId || 'user-cidadao-001',
+        agentName: data.agentName || 'Agente Teste',
+        userInput: data.userInput || 'Teste de interação',
+        agentResponse: data.agentResponse || 'Resposta de teste do agente',
+        responseTimeMs: data.responseTimeMs || Math.floor(Math.random() * 1000) + 200,
+        success: data.success !== false
+      }
+    });
+
+    // Buscar métricas recentes
+    const recentMetrics = await prisma.agentMetrics.findFirst({
+      where: { agentName: interaction.agentName },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return {
+      success: true,
+      message: 'Interação com agente testada',
+      interactionId: interaction.id,
+      agentName: interaction.agentName,
+      responseTime: `${interaction.responseTimeMs}ms`,
+      recentMetrics: recentMetrics ? {
+        totalInteractions: recentMetrics.totalInteractions,
+        successRate: `${((recentMetrics.successfulInteractions / recentMetrics.totalInteractions) * 100).toFixed(1)}%`,
+        avgResponseTime: `${recentMetrics.averageResponseTime}ms`
+      } : null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro na interação com agente',
+      error: error.message
+    };
+  }
+}
+
+// 🧪 ENDPOINT DE TESTE PARA ENTIDADES DIBEA
+app.post('/api/v1/test/entities', async (req, res) => {
+  try {
+    const { testType, entityData } = req.body;
+
+    console.log(`🧪 Teste de entidade: ${testType}`, entityData);
+
+    let result = {};
+
+    switch (testType) {
+      case 'animal_registration':
+        result = await testAnimalRegistration(entityData);
+        break;
+      case 'adoption_process':
+        result = await testAdoptionProcess(entityData);
+        break;
+      case 'user_management':
+        result = await testUserManagement(entityData);
+        break;
+      case 'municipality_operations':
+        result = await testMunicipalityOperations(entityData);
+        break;
+      case 'agent_interaction':
+        result = await testAgentInteraction(entityData);
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Tipo de teste não reconhecido'
+        });
+    }
+
+    return res.json({
+      success: true,
+      testType,
+      result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Test error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro no teste',
+      error: error.message
+    });
   }
 });
 

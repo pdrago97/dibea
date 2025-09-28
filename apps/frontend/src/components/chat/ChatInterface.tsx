@@ -247,7 +247,11 @@ export function ChatInterface({
                     <span className={`text-xs ${
                       message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
                     }`}>
-                      {new Date(message.timestamp).toLocaleTimeString()}
+                      {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      })}
                     </span>
                     
                     {message.type === 'user' && (

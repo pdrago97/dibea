@@ -28,6 +28,9 @@ import {
 import { MainNavigation } from '@/components/navigation/MainNavigation';
 import { PageHeader } from '@/components/navigation/Breadcrumb';
 import { StatusBadge } from '@/components/ui/design-system';
+import { AnimalTimeline } from '@/components/timeline/AnimalTimeline';
+import { timelineService } from '@/services/timelineService';
+import { useDashboard } from '@/hooks/useDashboard';
 
 interface Animal {
   id: string;
@@ -87,10 +90,15 @@ export default function AnimalDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  const { startAdoption } = useDashboard();
 
   useEffect(() => {
     loadUserData();
     loadAnimalData();
+    loadTimelineData();
   }, [animalId]);
 
   const loadUserData = () => {
@@ -170,6 +178,40 @@ export default function AnimalDetailPage() {
       console.error('Error loading animal data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTimelineData = async () => {
+    if (!animalId) return;
+
+    setTimelineLoading(true);
+    try {
+      const timelineData = await timelineService.getAnimalTimeline(animalId);
+      setTimeline(timelineData);
+    } catch (error) {
+      console.error('Error loading timeline:', error);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  const handleAdopt = async () => {
+    if (!animal) return;
+
+    try {
+      const result = await startAdoption(animal.id);
+      if (result.success) {
+        // Registrar evento na timeline
+        await timelineService.addAdoptionEvent(animal.id, 'started');
+        // Recarregar timeline
+        await loadTimelineData();
+        alert('Processo de adoção iniciado com sucesso!');
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar adoção:', error);
+      alert('Erro ao iniciar processo de adoção');
     }
   };
 
@@ -425,10 +467,10 @@ export default function AnimalDetailPage() {
               {/* Action Buttons */}
               <div className="space-y-3">
                 {animal.status === 'available' && (
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     size="lg"
-                    onClick={handleAdoptionInterest}
+                    onClick={handleAdopt}
                   >
                     <Heart className="w-5 h-5 mr-2" />
                     Tenho Interesse em Adotar
@@ -463,6 +505,20 @@ export default function AnimalDetailPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Timeline Section */}
+          <div className="mt-8">
+            <AnimalTimeline
+              animalId={animal.id}
+              events={timeline}
+              isLoading={timelineLoading}
+              onRefresh={loadTimelineData}
+              onAddEvent={() => {
+                // Implementar modal para adicionar evento
+                console.log('Adicionar evento para', animal.name);
+              }}
+            />
           </div>
         </div>
       </div>

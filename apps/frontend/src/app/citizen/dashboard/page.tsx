@@ -7,6 +7,7 @@ import Header from '@/components/navigation/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Heart,
   MessageCircle,
@@ -22,9 +23,15 @@ import {
   ArrowRight,
   Bot,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 import Link from 'next/link';
+import { useDashboard } from '@/hooks/useDashboard';
+import { useChatService } from '@/services/chatService';
 
 interface UserProfile {
   id: string;
@@ -35,99 +42,58 @@ interface UserProfile {
   role: string;
 }
 
-interface AnimalCard {
-  id: string;
-  name: string;
-  species: string;
-  breed: string;
-  age: string;
-  description: string;
-  image: string;
-  urgent: boolean;
-  municipality: string;
-}
-
-interface AdoptionProcess {
-  id: string;
-  animalName: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  createdAt: string;
-  nextStep: string;
-}
-
 export default function CitizenDashboard() {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [featuredAnimals, setFeaturedAnimals] = useState<AnimalCard[]>([]);
-  const [adoptionProcesses, setAdoptionProcesses] = useState<AdoptionProcess[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    featuredAnimals,
+    adoptionProcesses,
+    notifications,
+    unreadCount,
+    urgentCount,
+    activeProcessCount,
+    isLoading,
+    error,
+    lastUpdated,
+    refreshData,
+    startAdoption,
+    markNotificationAsRead,
+    clearError
+  } = useDashboard();
+
+  const chatService = useChatService();
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      // Load user data from localStorage
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-
-      // Simulate API calls - replace with real data
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setFeaturedAnimals([
-        {
-          id: '1',
-          name: 'Luna',
-          species: 'Cão',
-          breed: 'Labrador Mix',
-          age: '2 anos',
-          description: 'Carinhosa e brincalhona, adora crianças',
-          image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
-          urgent: false,
-          municipality: 'São Paulo'
-        },
-        {
-          id: '2',
-          name: 'Milo',
-          species: 'Gato',
-          breed: 'Siamês',
-          age: '1 ano',
-          description: 'Calmo e independente, ideal para apartamento',
-          image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=200&fit=crop',
-          urgent: true,
-          municipality: 'São Paulo'
-        }
-      ]);
-
-      setAdoptionProcesses([
-        {
-          id: '1',
-          animalName: 'Rex',
-          status: 'pending',
-          createdAt: '2024-01-15',
-          nextStep: 'Aguardando análise de documentos'
-        }
-      ]);
-
-      setNotifications([
-        {
-          id: '1',
-          type: 'adoption',
-          message: 'Novo animal disponível para adoção na sua região',
-          time: '2 horas atrás'
-        },
-        {
-          id: '2',
-          type: 'process',
-          message: 'Seu processo de adoção foi atualizado',
-          time: '1 dia atrás'
-        }
-      ]);
-
-      setIsLoading(false);
-    };
-
-    loadDashboardData();
+    // Load user data from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
   }, []);
+
+  const handleAdoptAnimal = async (animalId: string) => {
+    try {
+      const result = await startAdoption(animalId);
+      if (result.success) {
+        // Mostrar sucesso - pode usar toast ou modal
+        console.log('✅ Processo de adoção iniciado:', result.message);
+      } else {
+        console.error('❌ Erro ao iniciar adoção:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao iniciar adoção:', error);
+    }
+  };
+
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
+
+    if (diffInHours < 1) return 'Agora mesmo';
+    if (diffInHours < 24) return `${diffInHours}h atrás`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d atrás`;
+  };
 
   const getStatusBadge = (status: string) => {
     const statusMap = {
@@ -150,6 +116,7 @@ export default function CitizenDashboard() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando seu dashboard...</p>
+          <p className="text-sm text-gray-500 mt-2">Conectando com agentes n8n...</p>
         </div>
       </div>
     );
@@ -184,12 +151,69 @@ export default function CitizenDashboard() {
       <div className="container mx-auto px-6 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Olá, {user?.name}! 👋
-          </h1>
-          <p className="text-gray-600">
-            Bem-vindo ao seu painel de adoção. Encontre seu novo melhor amigo ou acompanhe seus processos.
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Olá, {user?.name}! 👋
+              </h1>
+              <p className="text-gray-600">
+                Bem-vindo ao seu painel de adoção. Encontre seu novo melhor amigo ou acompanhe seus processos.
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {error && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    clearError();
+                    refreshData();
+                  }}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Tentar Novamente
+                </Button>
+              )}
+              {lastUpdated && (
+                <div className="text-xs text-gray-500 flex items-center">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Atualizado {formatTimeAgo(lastUpdated.toISOString())}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status Indicators */}
+          {(unreadCount > 0 || urgentCount > 0 || activeProcessCount > 0) && (
+            <div className="flex items-center space-x-4 mb-4">
+              {unreadCount > 0 && (
+                <Badge className="bg-blue-100 text-blue-800">
+                  {unreadCount} notificação{unreadCount > 1 ? 'ões' : ''} não lida{unreadCount > 1 ? 's' : ''}
+                </Badge>
+              )}
+              {urgentCount > 0 && (
+                <Badge className="bg-red-100 text-red-800">
+                  {urgentCount} animal{urgentCount > 1 ? 'is' : ''} urgente{urgentCount > 1 ? 's' : ''}
+                </Badge>
+              )}
+              {activeProcessCount > 0 && (
+                <Badge className="bg-green-100 text-green-800">
+                  {activeProcessCount} processo{activeProcessCount > 1 ? 's' : ''} ativo{activeProcessCount > 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         {/* Quick Actions */}
@@ -290,9 +314,13 @@ export default function CitizenDashboard() {
                           <MapPin className="w-3 h-3 mr-1" />
                           {animal.municipality}
                         </div>
-                        <Button size="sm">
+                        <Button
+                          size="sm"
+                          onClick={() => handleAdoptAnimal(animal.id)}
+                          disabled={animal.status !== 'available'}
+                        >
                           <Heart className="w-4 h-4 mr-2" />
-                          Adotar
+                          {animal.status === 'available' ? 'Adotar' : 'Indisponível'}
                         </Button>
                       </div>
                     </div>
@@ -359,20 +387,38 @@ export default function CitizenDashboard() {
 
               <div className="space-y-3">
                 {notifications.length > 0 ? notifications.map((notification) => (
-                  <Link key={notification.id} href={`/notifications/${notification.id}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{notification.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                  <Card
+                    key={notification.id}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => {
+                      if (!notification.read) {
+                        markNotificationAsRead(notification.id);
+                      }
+                      // Navigate to notification detail or action
+                      if (notification.metadata?.actionUrl) {
+                        window.open(notification.metadata.actionUrl, '_blank');
+                      }
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-2 h-2 rounded-full mt-2 ${
+                          notification.read ? 'bg-gray-300' : 'bg-blue-600'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-gray-900">{notification.title || notification.message}</p>
+                            {notification.priority === 'high' && (
+                              <Badge className="bg-red-100 text-red-800 text-xs">Urgente</Badge>
+                            )}
                           </div>
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{formatTimeAgo(notification.timestamp)}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 )) : (
                   <Card>
                     <CardContent className="p-6 text-center">

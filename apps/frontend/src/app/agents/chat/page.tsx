@@ -3,6 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, AlertCircle, ExternalLink, FileText, Search, Upload, Camera, BarChart3, Info, BookOpen } from 'lucide-react';
 import Link from 'next/link';
+import { chatService } from '@/services/chatService';
+import { timelineService } from '@/services/timelineService';
+import { formatTime } from '@/lib/utils';
 
 interface Action {
   type: 'form' | 'search' | 'upload' | 'camera' | 'report' | 'info' | 'guide';
@@ -58,39 +61,51 @@ export default function AgentChatPage() {
     setError(null);
 
     try {
-      // Call local agent endpoint
-      const response = await fetch('/api/v1/agents/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          message: inputValue,
-          context: {
-            previousMessages: messages.slice(-5), // Last 5 messages for context
-            timestamp: new Date().toISOString()
-          }
-        })
-      });
+      // ✅ NOVA INTEGRAÇÃO: Usar n8n via chatService
+      console.log('🚀 Enviando mensagem para n8n:', inputValue);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const response = await chatService.sendMessage(
+        inputValue,
+        messages.slice(-5).map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          sender: msg.type === 'user' ? 'user' : 'bot',
+          timestamp: msg.timestamp,
+          agent: msg.agent
+        }))
+      );
 
-      const data = await response.json();
+      console.log('📨 Resposta do n8n:', response);
 
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'agent',
-        content: data.response || data.message || 'Resposta recebida do agente.',
+        content: response.message || 'Resposta recebida do agente n8n.',
         timestamp: new Date(),
-        agent: data.agent || 'DIBEA Assistant',
-        confidence: data.confidence || 0.95,
-        actions: data.actions || []
+        agent: response.agent || 'DIBEA Assistant',
+        confidence: 0.95,
+        actions: (response.actions || []).map(action => ({
+          type: 'form' as const,
+          label: action.label,
+          url: action.action || '#'
+        }))
       };
 
       setMessages(prev => [...prev, agentMessage]);
+
+      // Registrar interação na timeline se houver animalId no contexto
+      if (response.metadata?.animalId) {
+        try {
+          await timelineService.addChatInteraction(
+            response.metadata.animalId,
+            inputValue,
+            response.message,
+            response.agent
+          );
+        } catch (timelineError) {
+          console.warn('Erro ao registrar na timeline:', timelineError);
+        }
+      }
 
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
@@ -109,7 +124,7 @@ export default function AgentChatPage() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -204,7 +219,7 @@ export default function AgentChatPage() {
                       </div>
                     )}
                     <div className="text-xs opacity-75 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
+                      {formatTime(message.timestamp)}
                     </div>
                   </div>
                 </div>
@@ -245,7 +260,7 @@ export default function AgentChatPage() {
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="Digite sua mensagem... (Ex: 'Quero cadastrar um novo cão' ou 'Acabei de vacinar o Rex')"
               className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={2}
