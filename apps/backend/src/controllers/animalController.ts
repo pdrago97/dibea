@@ -17,7 +17,7 @@ const createAnimalSchema = z.object({
   temperament: z.string().optional(),
   observations: z.string().optional(),
   status: z.enum(['DISPONIVEL', 'ADOTADO', 'TRATAMENTO', 'OBITO', 'PERDIDO']).default('DISPONIVEL'),
-  qrCode: z.string(),
+  qrCode: z.string().optional(), // Made optional for n8n integration
   municipalityId: z.string(),
   microchipId: z.string().optional()
 });
@@ -62,11 +62,6 @@ export const getAnimals = async (req: Request, res: Response): Promise<any> => {
         include: {
           municipality: {
             select: { id: true, name: true }
-          },
-          photos: true,
-          microchip: true,
-          _count: {
-            select: { medicalHistory: true }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -106,12 +101,6 @@ export const getAnimal = async (req: Request, res: Response): Promise<any> => {
         municipality: {
           select: { id: true, name: true }
         },
-        photos: true,
-        medicalHistory: {
-          orderBy: { date: 'desc' }
-        },
-        microchip: true,
-        rgas: true,
         adoptions: {
           orderBy: { createdAt: 'desc' },
           take: 1
@@ -158,8 +147,6 @@ export const createAnimal = async (req: Request, res: Response): Promise<any> =>
         municipality: {
           select: { id: true, name: true }
         },
-        photos: true,
-        microchip: true
       }
     });
 
@@ -217,9 +204,7 @@ export const updateAnimal = async (req: Request, res: Response): Promise<any> =>
       include: {
         municipality: {
           select: { id: true, name: true }
-        },
-        photos: true,
-        microchip: true
+        }
       }
     });
 

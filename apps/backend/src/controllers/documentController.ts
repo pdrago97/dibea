@@ -5,7 +5,7 @@ import { z } from 'zod';
 const prisma = new PrismaClient();
 
 // Upload document for an animal
-export const uploadDocument = async (req: Request, res: Response): Promise<void> => {
+export const uploadDocument = async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { animalId } = req.params;
     const { type, description } = req.body;
@@ -58,7 +58,7 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
 };
 
 // Analyze document with AI
-export const analyzeDocument = async (req: Request, res: Response): Promise<void> => {
+export const analyzeDocument = async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { documentId } = req.params;
 
@@ -94,7 +94,7 @@ export const analyzeDocument = async (req: Request, res: Response): Promise<void
 };
 
 // Get all documents for an animal
-export const getAnimalDocuments = async (req: Request, res: Response): Promise<void> => {
+export const getAnimalDocuments = async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { animalId } = req.params;
 
@@ -149,7 +149,7 @@ export const getAnimalDocuments = async (req: Request, res: Response): Promise<v
 };
 
 // Get animal knowledge graph
-export const getAnimalGraph = async (req: Request, res: Response): Promise<void> => {
+export const getAnimalGraph = async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { animalId } = req.params;
 
@@ -200,7 +200,7 @@ export const getAnimalGraph = async (req: Request, res: Response): Promise<void>
 };
 
 // Delete document
-export const deleteDocument = async (req: Request, res: Response): Promise<void> => {
+export const deleteDocument = async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { documentId } = req.params;
 

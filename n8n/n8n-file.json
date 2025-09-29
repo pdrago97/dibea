@@ -1,0 +1,452 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        64
+      ],
+      "id": "31f73e77-24bf-4621-a8ef-f3ed06a6632a",
+      "name": "When chat message received",
+      "webhookId": "dcfad7e3-e957-47e0-a5e5-7f6ecb400a54"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse a resposta do SMART AGENT\nconst agentResponse = $input.first().json;\n\n// Se já for um objeto, use diretamente\nlet parsed = agentResponse;\n\n// Se for string, faça parse\nif (typeof agentResponse.output === 'string') {\n  try {\n    parsed = JSON.parse(agentResponse.output);\n  } catch (e) {\n    // Se falhar, tente extrair JSON da string\n    const jsonMatch = agentResponse.output.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      parsed = JSON.parse(jsonMatch[0]);\n    } else {\n      throw new Error('Não foi possível extrair JSON da resposta');\n    }\n  }\n} else if (agentResponse.output && typeof agentResponse.output === 'object') {\n  parsed = agentResponse.output;\n}\n\n// Retorna o objeto processado\nreturn {\n  json: {\n    intent: parsed.intent,\n    function: parsed.function,\n    endpoint: parsed.endpoint,\n    parameters: parsed.parameters,\n    user_message: parsed.user_message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        160
+      ],
+      "id": "e0428c51-9119-4213-a55f-94d11ea4a782",
+      "name": "Process Agent Response"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "o4-mini",
+          "mode": "list",
+          "cachedResultName": "o4-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        384
+      ],
+      "id": "ca3725b0-aef5-4dad-8168-2b8a7a72860a",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "lJGvrImn2WUYPuNE",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        384
+      ],
+      "id": "4e783c2b-ecb4-4eea-a664-fbc0ded1ce57",
+      "name": "Postgres Chat Memory9",
+      "credentials": {
+        "postgres": {
+          "id": "2VVxWLQMsytxBsoP",
+          "name": "Postgres account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "d0fff20e-124c-49f3-8ccf-a615504c5fc1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        256
+      ],
+      "id": "bad7b596-1369-4adc-adf0-91217138f239",
+      "name": "Webhook2",
+      "webhookId": "d0fff20e-124c-49f3-8ccf-a615504c5fc1"
+    },
+    {
+      "parameters": {
+        "model": "grok-4-fast-reasoning",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatXAiGrok",
+      "typeVersion": 1,
+      "position": [
+        112,
+        384
+      ],
+      "id": "3c6f41f6-2607-41b1-a6ad-3f3ffad46606",
+      "name": "xAI Grok Chat Model9",
+      "credentials": {
+        "xAiApi": {
+          "id": "8tCzajYEvYL87Rmj",
+          "name": "xAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "=POST",
+        "url": "=https://xptonqqagxcpzlgndilj.supabase.co/rest/v1/rpc/{{ $json.function }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.parameters) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        -16
+      ],
+      "id": "05017a16-90b7-41b0-8ede-528bb2b81f12",
+      "name": "HTTP Request3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "mrRLeoHwNIEKek1I",
+          "name": "DIBEASUPABASE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:3000/api/v1/{{ $json.endpoint }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.parameters) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        320
+      ],
+      "id": "e83bf88b-15c9-4011-b0d9-5f4b24a36d93",
+      "name": "HTTP Request4"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2208,
+        128
+      ],
+      "id": "83a9036e-2125-46ca-9c74-368020d42951",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é o assistente inteligente do DIBEA - Sistema Municipal de Bem-Estar Animal.\n\nCAPACIDADES DISPONÍVEIS:\n\n🔍 CONSULTAS (via Supabase Functions):\n- search_animals_text: Buscar animais com filtros\n  Parâmetros: {\"search_query\": \"texto\", \"species_filter\": \"CANINO|FELINO|all\", \"size_filter\": \"PEQUENO|MEDIO|GRANDE|all\", \"municipality_filter\": \"cidade\", \"limit_count\": 10}\n\n- get_animal_details: Detalhes específicos de um animal\n  Parâmetros: {\"animal_id\": \"uuid\"}\n\n- get_adoption_stats: Estatísticas de adoção\n  Parâmetros: {\"municipality_filter\": null, \"period_days\": 30}\n\n- search_municipalities: Buscar municípios\n  Parâmetros: {\"search_query\": \"nome\", \"state_filter\": \"SP\"}\n\n🎯 AÇÕES (via DIBEA API):\n- create_animal: Cadastrar novo animal\n  Endpoint: animals\n  Parâmetros: {\"name\": \"nome\", \"species\": \"CANINO|FELINO\", \"breed\": \"raça\", \"sex\": \"MACHO|FEMEA\", \"size\": \"PEQUENO|MEDIO|GRANDE\", \"municipalityId\": \"uuid\"}\n\n- create_adoption: Iniciar processo de adoção\n  Endpoint: adoptions\n  Parâmetros: {\"animalId\": \"uuid\", \"tutorId\": \"uuid\", \"observations\": \"texto\"}\n\n- create_appointment: Agendar consulta/visita\n  Endpoint: appointments\n  Parâmetros: {\"type\": \"VISITA_ADOCAO|CONSULTA\", \"dateTime\": \"ISO8601\", \"tutorId\": \"uuid\", \"animalId\": \"uuid\"}\n\n- create_tutor: Cadastrar novo tutor\n  Endpoint: tutors\n  Parâmetros: {\"name\": \"nome\", \"cpf\": \"cpf\", \"email\": \"email\", \"phone\": \"telefone\"}\n\nESTRATÉGIA DE DECISÃO:\n1. Analise a intenção do usuário\n2. Determine se é CONSULTA (QUERY) ou AÇÃO (ACTION)\n3. Escolha a função apropriada\n4. Extraia e formate os parâmetros\n\nEXEMPLOS:\n- \"Quero um cão pequeno\" → QUERY: search_animals_text\n- \"Cadastrar novo cachorro chamado Rex\" → ACTION: create_animal\n- \"Marcar visita para adoção\" → ACTION: create_appointment\n- \"Quantos animais disponíveis?\" → QUERY: get_adoption_stats\n\nSEMPRE responda em JSON válido:\n{\n  \"intent\": \"QUERY\",\n  \"function\": \"search_animals_text\",\n  \"endpoint\": null,\n  \"parameters\": {\n    \"search_query\": \"\",\n    \"species_filter\": \"CANINO\",\n    \"size_filter\": \"PEQUENO\",\n    \"municipality_filter\": null,\n    \"limit_count\": 10\n  },\n  \"user_message\": \"mensagem original do usuário\"\n}\n\nOU para ações:\n{\n  \"intent\": \"ACTION\",\n  \"function\": \"create_animal\",\n  \"endpoint\": \"animals\",\n  \"parameters\": {\n    \"name\": \"Rex\",\n    \"species\": \"CANINO\",\n    \"breed\": \"Labrador\",\n    \"sex\": \"MACHO\",\n    \"size\": \"GRANDE\",\n    \"municipalityId\": \"uuid-do-municipio\"\n  },\n  \"user_message\": \"mensagem original do usuário\"\n}\n\nPara a mensagem recebida pelo chat de atendimento >>>>>\n\n{{ $json.chatInput }} OR ",
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        160
+      ],
+      "id": "f9ac0d53-5aad-4427-8e62-cc368b29ca08",
+      "name": "SMART AGENT1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=⚠️ REGRA CRÍTICA: USE APENAS OS DADOS DO JSON ABAIXO. NÃO INVENTE INFORMAÇÕES.\n\n📊 DADOS REAIS DO SISTEMA DIBEA:\n```json\n{{ JSON.stringify($json, null, 2) }}\n```\n\n---\n\n🎯 SUA TAREFA:\nVocê é o assistente do DIBEA. Recebeu dados formatados do sistema e deve gerar uma resposta natural e útil.\n\n📝 INFORMAÇÕES DISPONÍVEIS:\n- Mensagem do usuário: {{ $json.user_message }}\n- Tipo de operação: {{ $json.intent }}\n- Função executada: {{ $json.function }}\n- Status: {{ $json.success }}\n- Resumo: {{ $json.summary }}\n- Quantidade: {{ $json.count }}\n- Dados: (veja o JSON completo acima)\n\n❌ PROIBIDO:\n- Inventar números ou dados que não estão no JSON\n- Adicionar informações não presentes nos dados\n- Usar conhecimento prévio ou exemplos fictícios\n- Mencionar valores que não aparecem no JSON acima\n\n✅ OBRIGATÓRIO:\n- Use APENAS os dados do JSON fornecido\n- Se um número está no JSON, use esse número EXATO\n- Se uma informação NÃO está no JSON, NÃO mencione\n- Seja empático e prestativo\n- Use linguagem natural e conversacional\n- Use emojis quando apropriado 🐕 🐱\n\n💡 DIRETRIZES POR TIPO DE OPERAÇÃO:\n\n**CONSULTAS (intent: QUERY):**\n- Se success=true e count>0: Liste os resultados encontrados usando os dados do JSON\n- Se success=true e count=0: Informe que não encontrou e sugira alternativas\n- Para estatísticas: Apresente os números EXATOS do campo \"data\"\n- Para lista de animais: Mencione nome, espécie, raça, porte (dados do JSON)\n\n**AÇÕES (intent: ACTION):**\n- Se success=true: Confirme a ação e mencione IDs/códigos do JSON\n- Se success=false: Explique o erro usando os dados do campo \"data.error\"\n- Sugira próximos passos quando apropriado\n\n📋 EXEMPLOS DE COMO USAR OS DADOS:\n\n**Exemplo 1 - Estatísticas:**\nSe o JSON contém:\n```json\n{\n  \"data\": {\n    \"total_animals\": 4,\n    \"available_animals\": 3,\n    \"adopted_animals\": 1\n  }\n}\n```\nResposta CORRETA: \"No momento temos 4 animais no sistema, sendo 3 disponíveis para adoção e 1 já adotado! 🐾\"\nResposta ERRADA: \"Temos 250 animais...\" ❌ (inventou número)\n\n**Exemplo 2 - Lista de animais:**\nSe o JSON contém:\n```json\n{\n  \"count\": 2,\n  \"data\": [\n    {\"name\": \"Rex\", \"species\": \"CANINO\", \"size\": \"GRANDE\"},\n    {\"name\": \"Luna\", \"species\": \"CANINO\", \"size\": \"PEQUENO\"}\n  ]\n}\n```\nResposta CORRETA: \"Encontrei 2 cães! Rex (porte grande) e Luna (porte pequeno). 🐕\"\nResposta ERRADA: \"Encontrei 5 cães...\" ❌ (inventou número)\n\n**Exemplo 3 - Sem resultados:**\nSe o JSON contém:\n```json\n{\n  \"count\": 0,\n  \"data\": []\n}\n```\nResposta CORRETA: \"Não encontrei animais com essas características no momento. Quer ver outras opções? 😊\"\n\n🚀 AGORA GERE SUA RESPOSTA USANDO EXCLUSIVAMENTE OS DADOS DO JSON ACIMA:",
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1888,
+        128
+      ],
+      "id": "6616adf6-0400-4cc2-95d5-da9d9250cb3b",
+      "name": "SMART AGENT2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// FORMAT RESPONSE NODE - DIBEA\n// ========================================\n// Este código formata os outputs dos HTTP Requests\n// para um formato consistente que o SMART AGENT1 pode processar\n\nconst input = $input.first().json;\nconst previousNode = $input.first().node;\n\n// Pega a mensagem original do usuário\nconst userMessage = $('Process Agent Response').item.json.user_message || 'Consulta do usuário';\nconst intent = $('Process Agent Response').item.json.intent;\nconst functionName = $('Process Agent Response').item.json.function;\n\n// Inicializa o objeto de resposta formatada\nlet formattedResponse = {\n  user_message: userMessage,\n  intent: intent,\n  function: functionName,\n  data: null,\n  summary: '',\n  count: 0,\n  success: false\n};\n\n// ========================================\n// FORMATAR RESPOSTA DO SUPABASE\n// ========================================\nif (intent === 'QUERY') {\n  \n  // Verifica se é um array de resultados\n  if (Array.isArray(input)) {\n    formattedResponse.success = true;\n    formattedResponse.data = input;\n    formattedResponse.count = input.length;\n    \n    // Gera summary baseado na função\n    if (functionName === 'search_animals_text') {\n      formattedResponse.summary = `Encontrados ${input.length} animais`;\n      \n      // Adiciona detalhes dos animais\n      if (input.length > 0) {\n        const animals = input.map(a => ({\n          id: a.id,\n          name: a.name || 'Sem nome',\n          species: a.species,\n          breed: a.breed || 'SRD',\n          sex: a.sex,\n          size: a.size,\n          age: a.age,\n          status: a.status,\n          description: a.description\n        }));\n        formattedResponse.data = animals;\n      }\n      \n    } else if (functionName === 'get_adoption_stats') {\n      formattedResponse.summary = 'Estatísticas de adoção';\n      \n      // Formata estatísticas\n      if (input.length > 0) {\n        const stats = input[0];\n        formattedResponse.data = {\n          total_animals: stats.total_animals || 0,\n          available: stats.available || 0,\n          adopted: stats.adopted || 0,\n          in_treatment: stats.in_treatment || 0,\n          by_species: stats.by_species || [],\n          by_size: stats.by_size || []\n        };\n        formattedResponse.summary = `Total: ${stats.total_animals || 0} animais`;\n      }\n      \n    } else if (functionName === 'search_municipalities') {\n      formattedResponse.summary = `Encontrados ${input.length} municípios`;\n      \n      if (input.length > 0) {\n        const municipalities = input.map(m => ({\n          id: m.id,\n          name: m.name,\n          state: m.state,\n          active: m.active\n        }));\n        formattedResponse.data = municipalities;\n      }\n      \n    } else if (functionName === 'get_animal_details') {\n      formattedResponse.summary = 'Detalhes do animal';\n      \n      if (input.length > 0) {\n        const animal = input[0];\n        formattedResponse.data = {\n          id: animal.id,\n          name: animal.name || 'Sem nome',\n          species: animal.species,\n          breed: animal.breed || 'SRD',\n          sex: animal.sex,\n          size: animal.size,\n          age: animal.age,\n          weight: animal.weight,\n          color: animal.color,\n          temperament: animal.temperament,\n          status: animal.status,\n          description: animal.description,\n          municipality: animal.municipality_name\n        };\n      }\n    }\n    \n  } else if (typeof input === 'object') {\n    // Resposta única (objeto)\n    formattedResponse.success = true;\n    formattedResponse.data = input;\n    formattedResponse.count = 1;\n    formattedResponse.summary = 'Resultado encontrado';\n  } else {\n    // Erro ou resposta vazia\n    formattedResponse.success = false;\n    formattedResponse.summary = 'Nenhum resultado encontrado';\n  }\n}\n\n// ========================================\n// FORMATAR RESPOSTA DA DIBEA API\n// ========================================\nelse if (intent === 'ACTION') {\n  \n  // Verifica se a ação foi bem-sucedida\n  if (input.success || input.id || input.data) {\n    formattedResponse.success = true;\n    \n    // Extrai dados relevantes\n    const responseData = input.data || input;\n    \n    if (functionName === 'create_animal') {\n      formattedResponse.summary = `Animal cadastrado com sucesso`;\n      formattedResponse.data = {\n        id: responseData.id,\n        name: responseData.name,\n        species: responseData.species,\n        breed: responseData.breed,\n        qrCode: responseData.qrCode || responseData.qr_code,\n        message: 'Animal cadastrado e disponível para adoção'\n      };\n      \n    } else if (functionName === 'create_adoption') {\n      formattedResponse.summary = `Processo de adoção iniciado`;\n      formattedResponse.data = {\n        id: responseData.id,\n        animalId: responseData.animalId || responseData.animal_id,\n        tutorId: responseData.tutorId || responseData.tutor_id,\n        status: responseData.status,\n        message: 'Processo de adoção criado com sucesso'\n      };\n      \n    } else if (functionName === 'create_appointment') {\n      formattedResponse.summary = `Agendamento realizado`;\n      formattedResponse.data = {\n        id: responseData.id,\n        type: responseData.type,\n        dateTime: responseData.dateTime || responseData.date_time,\n        status: responseData.status,\n        message: 'Agendamento confirmado'\n      };\n      \n    } else if (functionName === 'create_tutor') {\n      formattedResponse.summary = `Tutor cadastrado`;\n      formattedResponse.data = {\n        id: responseData.id,\n        name: responseData.name,\n        cpf: responseData.cpf,\n        email: responseData.email,\n        message: 'Tutor cadastrado com sucesso'\n      };\n      \n    } else {\n      // Ação genérica\n      formattedResponse.summary = 'Ação realizada com sucesso';\n      formattedResponse.data = responseData;\n    }\n    \n  } else {\n    // Erro na ação\n    formattedResponse.success = false;\n    formattedResponse.summary = 'Erro ao executar ação';\n    formattedResponse.data = {\n      error: input.error || input.message || 'Erro desconhecido',\n      details: input\n    };\n  }\n}\n\n// ========================================\n// RETORNA RESPOSTA FORMATADA\n// ========================================\nreturn {\n  json: formattedResponse\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        64
+      ],
+      "id": "2d921aa3-d2e1-4799-a714-90a23518e164",
+      "name": "Format-Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "=QUERY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7ac13201-82dc-4546-9592-bd24d56e82e3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5fbd9867-8057-4c82-8cff-a8dcabd0d9d2",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "ACTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        832,
+        160
+      ],
+      "id": "448435a8-47c2-4764-ab84-465e1954b113",
+      "name": "Switch"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "SMART AGENT1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Agent Response": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SMART AGENT1",
+            "type": "ai_languageModel",
+            "index": 1
+          },
+          {
+            "node": "SMART AGENT2",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory9": {
+      "ai_memory": [
+        [
+          {
+            "node": "SMART AGENT1",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "SMART AGENT2",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook2": {
+      "main": [
+        [
+          {
+            "node": "SMART AGENT1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "xAI Grok Chat Model9": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SMART AGENT1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "SMART AGENT2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Format-Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Format-Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMART AGENT1": {
+      "main": [
+        [
+          {
+            "node": "Process Agent Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMART AGENT2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format-Response": {
+      "main": [
+        [
+          {
+            "node": "SMART AGENT2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "7b231313465b4b56abc040e1ee6699b89ffde13a1618d023c42b1ed91cd395de"
+  }
+}

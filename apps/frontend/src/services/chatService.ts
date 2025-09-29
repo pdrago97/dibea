@@ -131,22 +131,64 @@ class ChatService {
   }
 
   private async callRouter(payload: any): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/v1/agents/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: payload.userInput,
-        context: payload.context
-      }),
-    });
+    // 🚀 NOVA ARQUITETURA: Tentar N8N primeiro, fallback para backend local
+    const n8nEndpoint = 'https://n8n-moveup-u53084.vm.elestio.app/webhook/dibea-master';
+    const localEndpoint = 'http://localhost:3002/api/v1/agents/chat';
 
-    if (!response.ok) {
-      throw new Error(`Router error! status: ${response.status}`);
+    console.log('🚀 Tentando N8N primeiro:', n8nEndpoint);
+    console.log('📊 Payload enviado:', payload);
+
+    try {
+      const response = await fetch(n8nEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userInput: payload.userInput,
+          userMessage: payload.userInput, // Fallback
+          message: payload.userInput, // Fallback
+          context: payload.context,
+          sessionId: payload.sessionId || `session-${Date.now()}`,
+          previousMessages: payload.previousMessages || []
+        }),
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && (data.message || data.response)) {
+          console.log('✅ Resposta do N8N:', data);
+          return data;
+        }
+      }
+
+      throw new Error('N8N não retornou resposta válida');
+    } catch (error) {
+      console.warn('⚠️ N8N falhou, usando backend local:', error);
+
+      // Fallback para backend local
+      const response = await fetch(localEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: payload.userInput,
+          context: payload.context,
+          sessionId: payload.sessionId || `session-${Date.now()}`,
+          previousMessages: payload.previousMessages || []
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend local falhou: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Resposta do backend local:', result);
+      return result;
     }
-
-    return await response.json();
   }
 
   private async callSpecificAgent(routerData: any, originalPayload: any): Promise<any> {

@@ -3,17 +3,30 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
+import { IntelligentChatService } from './services/intelligentChatService';
+import { supabaseService } from './services/supabaseService';
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = 3000;
+const intelligentChat = new IntelligentChatService();
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3002;
 const JWT_SECRET = 'demo-secret-key';
 
-// 🎯 CONFIGURAÇÃO: Forçar uso do n8n (LLM agents)
+// 🎯 CONFIGURAÇÃO: Sistema inteligente com N8N
 const FORCE_N8N = false; // true = só n8n, false = fallback local se n8n falhar
 const USE_N8N_SIMULATION = false; // true = usa simulação para demonstrar integração
 const N8N_TIMEOUT = 60000; // 60 segundos para LLMs
-const N8N_WEBHOOK_URL = 'https://n8n-moveup-u53084.vm.elestio.app/webhook/dibea-master';
+const N8N_BASE_URL = process.env.N8N_WEBHOOK_URL || 'https://n8n-moveup-u53084.vm.elestio.app';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// N8N Workflow endpoints
+const N8N_ENDPOINTS = {
+  ROUTER: `${N8N_BASE_URL}/webhook/dibea-intelligent-router-crud`,
+  CREATE: `${N8N_BASE_URL}/webhook/dibea-create-entity`,
+  SEARCH: `${N8N_BASE_URL}/webhook/dibea-intelligent-chat`,
+  UPDATE: `${N8N_BASE_URL}/webhook/dibea-update-entity`,
+  GENERAL: `${N8N_BASE_URL}/webhook/general-agent`
+};
 
 // Middleware
 app.use(cors());
@@ -196,10 +209,10 @@ app.post('/api/v1/auth/register', async (req, res) => {
   }
 });
 
-// Agent Chat endpoint with n8n integration
+// Intelligent Chat endpoint with N8N workflows, memory, and tool calls
 app.post('/api/v1/agents/chat', async (req, res) => {
   try {
-    const { message, context } = req.body;
+    const { message, context, sessionId, userId } = req.body;
 
     if (!message) {
       return res.status(400).json({
@@ -208,123 +221,137 @@ app.post('/api/v1/agents/chat', async (req, res) => {
       });
     }
 
-    // 🧪 Modo simulação para demonstrar integração
-    if (USE_N8N_SIMULATION) {
-      console.log('🧪 Usando simulação n8n para:', message);
+    console.log('🧠 Processando com chat inteligente:', { message, sessionId, userId });
 
-      const mockResponse = generateN8nSimulation(message);
-
-      return res.json({
-        success: true,
-        response: mockResponse.message,
-        agent: mockResponse.agent,
-        confidence: mockResponse.confidence,
-        actions: mockResponse.actions,
-        source: 'n8n_simulation',
-        metadata: mockResponse.metadata
-      });
-    }
-
-    // Try n8n first, fallback to local processing
-    try {
-      console.log('🔄 Tentando n8n para:', message);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT);
-
-      console.log('🚀 Enviando para n8n:', {
-        url: N8N_WEBHOOK_URL,
-        payload: { userInput: message, context: context || {} }
-      });
-
-      const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          userInput: message,
-          sessionId: req.body.sessionId || `session-${Date.now()}`,
-          userId: req.body.userId || null,
-          context: context || {}
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      console.log('📡 Resposta n8n status:', n8nResponse.status);
-      console.log('📡 Resposta n8n headers:', Object.fromEntries(n8nResponse.headers.entries()));
-
-      if (n8nResponse.ok) {
-        const responseText = await n8nResponse.text();
-        console.log('📄 Resposta n8n raw:', responseText);
-
-        if (!responseText || responseText.trim() === '') {
-          throw new Error('n8n retornou resposta vazia');
-        }
-
-        let n8nData;
-        try {
-          n8nData = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('❌ Erro ao parsear JSON do n8n:', parseError);
-          console.log('📄 Conteúdo recebido:', responseText);
-          throw new Error('n8n retornou resposta inválida (não JSON)');
-        }
-
-        console.log('✅ n8n respondeu com dados válidos:', n8nData);
-
-        return res.json({
-          success: true,
-          response: n8nData.message || n8nData.response || n8nData.text || 'Resposta do n8n recebida',
-          agent: n8nData.agent || 'n8n LLM Agent',
-          confidence: n8nData.confidence || 0.9,
-          actions: n8nData.actions || n8nData.quickReplies || [],
-          source: 'n8n',
-          metadata: n8nData.metadata || {},
-          data: n8nData.data
-        });
-      } else {
-        const errorText = await n8nResponse.text();
-        console.error('❌ n8n erro HTTP:', n8nResponse.status, errorText);
-        throw new Error(`n8n HTTP ${n8nResponse.status}: ${errorText}`);
-      }
-    } catch (n8nError) {
-      console.error('❌ n8n falhou:', n8nError.message);
-
-      if (FORCE_N8N) {
-        // Modo forçado: retorna erro em vez de fallback
-        return res.status(503).json({
-          success: false,
-          error: 'Sistema de LLM agents temporariamente indisponível',
-          message: 'O n8n com os agentes LLM não está respondendo. Tente novamente em alguns instantes.',
-          details: n8nError.message,
-          source: 'n8n_error'
-        });
-      }
-
-      console.log('⚠️ Usando fallback local (FORCE_N8N=false)');
-    }
-
-    // Fallback to local processing
-    const response = await processAgentMessage(message, context);
+    // Use the intelligent chat service
+    const response = await intelligentChat.processMessage(
+      message,
+      sessionId || `session-${Date.now()}`,
+      userId,
+      context
+    );
 
     return res.json({
       success: true,
-      response: response.content,
+      response: response.message,
       agent: response.agent,
       confidence: response.confidence,
       actions: response.actions || [],
-      source: 'local'
+      source: 'intelligent_chat_service',
+      metadata: response.metadata,
+      toolCalls: response.toolCalls
     });
 
   } catch (error) {
-    console.error('Agent chat error:', error);
+    console.error('❌ Erro no chat inteligente:', error);
+
     return res.status(500).json({
       success: false,
-      message: 'Erro interno do agente'
+      message: 'Erro interno do servidor',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Test endpoint for intelligent chat system
+app.post('/api/v1/agents/chat/test', async (req, res) => {
+  try {
+    const testMessages = [
+      'Quero cadastrar um novo cão',
+      'Buscar animais disponíveis para adoção',
+      'Como funciona o processo de adoção?',
+      'Quais documentos preciso para adotar?'
+    ];
+
+    const results = [];
+    const sessionId = `test-session-${Date.now()}`;
+
+    for (const message of testMessages) {
+      console.log(`🧪 Testando: "${message}"`);
+
+      try {
+        const response = await intelligentChat.processMessage(
+          message,
+          sessionId,
+          'test-user',
+          { test: true }
+        );
+
+        results.push({
+          message,
+          response: response.message,
+          agent: response.agent,
+          confidence: response.confidence,
+          intent: response.metadata?.intent,
+          toolCalls: response.toolCalls?.length || 0,
+          success: true
+        });
+
+      } catch (error) {
+        results.push({
+          message,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      testResults: results,
+      summary: {
+        total: testMessages.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no teste do chat:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get conversation history endpoint
+app.get('/api/v1/agents/chat/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const context = await prisma.$queryRaw<any[]>`
+      SELECT * FROM conversation_contexts
+      WHERE session_id = ${sessionId}
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `;
+
+    if (context.length === 0) {
+      return res.json({
+        success: true,
+        history: [],
+        message: 'Nenhum histórico encontrado para esta sessão'
+      });
+    }
+
+    const contextData = JSON.parse(context[0].context_data || '{}');
+
+    return res.json({
+      success: true,
+      sessionId,
+      lastIntent: context[0].last_intent,
+      lastAgent: context[0].last_agent,
+      history: contextData.conversationHistory || [],
+      updatedAt: context[0].updated_at
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar histórico:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
@@ -540,21 +567,17 @@ Como posso te ajudar hoje? Você pode me dizer o que precisa fazer ou escolher u
 // Landing page stats
 app.get('/api/v1/landing/stats', async (req, res) => {
   try {
-    const [totalAnimals, adoptedAnimals, totalMunicipalities, totalUsers] = await Promise.all([
-      prisma.animal.count(),
-      prisma.animal.count({ where: { status: 'ADOTADO' } }),
-      prisma.municipality.count({ where: { active: true } }),
-      prisma.user.count({ where: { isActive: true } })
-    ]);
+    console.log('🔍 Fetching landing stats from Supabase...');
+    const stats = await supabaseService.getDashboardStats();
 
     res.json({
-      totalAnimals,
-      adoptedAnimals,
-      totalMunicipalities,
-      totalUsers
+      totalAnimals: stats.totalAnimals,
+      adoptedAnimals: stats.adoptedAnimals,
+      totalMunicipalities: stats.totalMunicipalities,
+      totalUsers: stats.totalUsers
     });
   } catch (error) {
-    console.error('Stats error:', error);
+    console.error('❌ Stats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -562,27 +585,24 @@ app.get('/api/v1/landing/stats', async (req, res) => {
 // Animals for landing
 app.get('/api/v1/landing/animals', async (req, res) => {
   try {
-    const animals = await prisma.animal.findMany({
-      where: { status: 'DISPONIVEL' },
-      include: { municipality: true },
-      take: 6,
-      orderBy: { createdAt: 'desc' }
-    });
+    console.log('🔍 Fetching landing animals from Supabase...');
+    const animals = await supabaseService.getAnimals({ status: 'DISPONIVEL' });
 
-    const formattedAnimals = animals.map(animal => ({
+    const formattedAnimals = animals.slice(0, 6).map((animal: any) => ({
       id: animal.id,
       name: animal.name,
       species: animal.species,
       breed: animal.breed || 'SRD',
       age: animal.age ? `${animal.age} anos` : 'Idade não informada',
       description: animal.description || 'Animal carinhoso e brincalhão',
-      image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
-      municipality: animal.municipality.name,
+      image: animal.image_url || 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
+      municipality: animal.municipality?.name || 'N/A',
+      urgent: false
     }));
 
     res.json(formattedAnimals);
   } catch (error) {
-    console.error('Animals error:', error);
+    console.error('❌ Landing animals error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -590,43 +610,22 @@ app.get('/api/v1/landing/animals', async (req, res) => {
 // Admin dashboard stats
 app.get('/api/v1/admin/dashboard/stats', authenticateToken, async (req, res) => {
   try {
-    // Get real-time data directly from database
-    const [
-      totalUsers,
-      totalAnimals,
-      totalMunicipalities,
-      totalAdoptions,
-      activeUsers,
-      availableAnimals,
-      adoptedAnimals,
-      totalInteractions
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.animal.count(),
-      prisma.municipality.count(),
-      prisma.adoption.count(),
-      prisma.user.count({ where: { isActive: true } }),
-      prisma.animal.count({ where: { status: 'DISPONIVEL' } }),
-      prisma.animal.count({ where: { status: 'ADOTADO' } }),
-      prisma.agentInteraction.count()
-    ]);
-
-    // Calculate adoption rate
-    const adoptionRate = totalAnimals > 0 ? ((adoptedAnimals / totalAnimals) * 100).toFixed(1) : '0';
+    console.log('🔍 Fetching admin dashboard stats from Supabase...');
+    const stats = await supabaseService.getDashboardStats();
 
     res.json({
-      totalAnimals,
-      availableAnimals,
-      adoptedAnimals,
-      totalUsers,
-      activeUsers,
-      totalMunicipalities,
-      totalAdoptions,
-      totalInteractions,
-      adoptionRate
+      totalAnimals: stats.totalAnimals,
+      availableAnimals: stats.availableAnimals,
+      adoptedAnimals: stats.adoptedAnimals,
+      totalUsers: stats.totalUsers,
+      activeUsers: stats.totalUsers, // For now, assume all users are active
+      totalMunicipalities: stats.totalMunicipalities,
+      totalAdoptions: stats.totalAdoptions,
+      totalInteractions: 0, // Will implement later
+      adoptionRate: stats.adoptionRate
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
+    console.error('❌ Dashboard stats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -658,38 +657,145 @@ app.get('/api/v1/admin/agents/metrics', authenticateToken, async (req, res) => {
 // Animals list
 app.get('/api/v1/animals', authenticateToken, async (req, res) => {
   try {
+    console.log('🔍 Fetching animals from Supabase...');
     const { status, species } = req.query;
-    
-    const where: any = {};
-    if (status && status !== 'all') where.status = status;
-    if (species && species !== 'all') where.species = species;
 
-    const animals = await prisma.animal.findMany({
-      where,
-      include: { municipality: true },
-      orderBy: { createdAt: 'desc' }
-    });
+    const filters: any = {};
+    if (status && status !== 'all') filters.status = status;
+    if (species && species !== 'all') filters.species = species;
 
-    const formattedAnimals = animals.map(animal => ({
+    const animals = await supabaseService.getAnimals(filters);
+
+    const formattedAnimals = animals.map((animal: any) => ({
       id: animal.id,
       name: animal.name,
       species: animal.species,
       breed: animal.breed || 'SRD',
       sex: animal.sex,
       age: animal.age,
-      weight: animal.weight,
       size: animal.size,
-      color: animal.color,
       description: animal.description,
       status: animal.status,
-      municipality: animal.municipality.name,
-      createdAt: animal.createdAt
+      municipality: animal.municipality?.name || 'N/A',
+      image: animal.image_url,
+      createdAt: animal.created_at
     }));
 
-    res.json(formattedAnimals);
+    res.json({ data: formattedAnimals, total: formattedAnimals.length });
   } catch (error) {
-    console.error('Animals list error:', error);
+    console.error('❌ Animals list error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Chat endpoint with Supabase integration
+app.post('/api/v1/agents/chat', async (req, res) => {
+  try {
+    console.log('🤖 Chat request received:', req.body);
+    const { message, userInput, context, sessionId } = req.body;
+    const userMessage = message || userInput || '';
+
+    if (!userMessage.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mensagem não pode estar vazia',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Analyze user intent
+    const lowerMessage = userMessage.toLowerCase();
+    let response = '';
+    let actions = [];
+    let data = {};
+
+    if (lowerMessage.includes('animal') || lowerMessage.includes('pet') || lowerMessage.includes('cão') || lowerMessage.includes('gato')) {
+      // Animal-related queries
+      const stats = await supabaseService.getDashboardStats();
+      const animals = await supabaseService.getAnimals({ status: 'DISPONIVEL' });
+
+      response = `🐕 Temos ${stats.totalAnimals} animais cadastrados no sistema, sendo ${stats.availableAnimals} disponíveis para adoção!`;
+
+      if (lowerMessage.includes('cadastrar') || lowerMessage.includes('registrar')) {
+        response += ' Para cadastrar um novo animal, preciso de algumas informações como nome, espécie, idade e descrição.';
+        actions = [
+          { label: '📝 Iniciar cadastro', action: 'start_registration' },
+          { label: '👁️ Ver animais cadastrados', action: 'list_animals' }
+        ];
+      } else {
+        actions = [
+          { label: '👁️ Ver todos os animais', action: 'list_animals' },
+          { label: '❤️ Processo de adoção', action: 'adoption_process' },
+          { label: '➕ Cadastrar animal', action: 'register_animal' }
+        ];
+      }
+
+      data = { animals: animals.slice(0, 3), stats };
+
+    } else if (lowerMessage.includes('adoção') || lowerMessage.includes('adotar')) {
+      // Adoption-related queries
+      const stats = await supabaseService.getDashboardStats();
+      response = `❤️ Já realizamos ${stats.adoptedAnimals} adoções! O processo de adoção envolve cadastro do tutor, análise de perfil e acompanhamento pós-adoção.`;
+
+      actions = [
+        { label: '📋 Iniciar processo de adoção', action: 'start_adoption' },
+        { label: '🐕 Ver animais disponíveis', action: 'available_animals' },
+        { label: '📊 Estatísticas de adoção', action: 'adoption_stats' }
+      ];
+
+      data = { adoptionStats: stats };
+
+    } else if (lowerMessage.includes('estatística') || lowerMessage.includes('número') || lowerMessage.includes('quantos')) {
+      // Statistics queries
+      const stats = await supabaseService.getDashboardStats();
+      response = `📊 **Estatísticas do DIBEA:**\n\n🐕 **${stats.totalAnimals}** animais cadastrados\n❤️ **${stats.adoptedAnimals}** adoções realizadas\n🏙️ **${stats.totalMunicipalities}** municípios ativos\n👥 **${stats.totalUsers}** usuários registrados\n📈 Taxa de adoção: **${stats.adoptionRate}%**`;
+
+      actions = [
+        { label: '📊 Ver relatório completo', action: 'full_report' },
+        { label: '🐕 Ver animais disponíveis', action: 'available_animals' },
+        { label: '🏙️ Ver municípios', action: 'municipalities' }
+      ];
+
+      data = { stats };
+
+    } else {
+      // General greeting or help
+      const stats = await supabaseService.getDashboardStats();
+      response = `👋 Olá! Sou o assistente inteligente do DIBEA. Posso te ajudar com:\n\n🐕 Informações sobre animais (${stats.availableAnimals} disponíveis)\n❤️ Processo de adoção\n📊 Estatísticas do sistema\n💉 Procedimentos veterinários\n\nComo posso te ajudar hoje?`;
+
+      actions = [
+        { label: '🐕 Ver animais disponíveis', action: 'list_animals' },
+        { label: '❤️ Processo de adoção', action: 'adoption_info' },
+        { label: '📊 Estatísticas', action: 'system_stats' },
+        { label: '➕ Cadastrar animal', action: 'register_animal' }
+      ];
+
+      data = { stats };
+    }
+
+    const chatResponse = {
+      success: true,
+      agent: 'DIBEA_CHAT_AGENT',
+      message: response,
+      data,
+      actions,
+      timestamp: new Date().toISOString(),
+      sessionId: sessionId || `session-${Date.now()}`,
+      database: 'Supabase PostgreSQL'
+    };
+
+    console.log('✅ Chat response:', chatResponse);
+    res.json(chatResponse);
+
+  } catch (error) {
+    console.error('❌ Chat error:', error);
+    res.status(500).json({
+      success: false,
+      agent: 'ERROR_AGENT',
+      message: 'Desculpe, ocorreu um erro interno. Tente novamente em alguns instantes.',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

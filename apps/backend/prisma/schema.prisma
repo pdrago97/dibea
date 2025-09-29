@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -27,6 +27,7 @@ model User {
   notifications Notification[]
   createdTasks  Task[] @relation("TaskCreator")
   assignedTasks Task[] @relation("TaskAssignee")
+  conversationContexts ConversationContext[]
 
   @@map("users")
 }
@@ -197,4 +198,20 @@ model Task {
   notifications Notification[]
 
   @@map("tasks")
+}
+
+model ConversationContext {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique @map("session_id")
+  userId      String?  @map("user_id")
+  contextData String   @default("{}") @map("context_data") // JSON string
+  lastIntent  String?  @map("last_intent")
+  lastAgent   String?  @map("last_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("conversation_contexts")
 }

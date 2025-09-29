@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { supabaseHelpers } from '@/lib/supabase';
 import {
   Heart,
   Users,
@@ -64,79 +65,61 @@ export default function LandingPage() {
 
     const loadLandingData = async () => {
       try {
-        // Load real stats from API
-        const statsResponse = await fetch('http://localhost:3000/api/v1/landing/stats');
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats({
-            totalAnimals: statsData.totalAnimals || 0,
-            adoptedAnimals: statsData.adoptedAnimals || 0,
-            activeMunicipalities: statsData.totalMunicipalities || 0,
-            registeredUsers: statsData.totalUsers || 0,
-            proceduresCompleted: 0,
-            documentsProcessed: 0
-          });
+        console.log('🔍 Loading landing data from backend + Supabase...');
+
+        // Try backend first, fallback to direct Supabase
+        try {
+          const [statsResponse, animalsResponse] = await Promise.all([
+            fetch('http://localhost:3003/api/v1/landing/stats'),
+            fetch('http://localhost:3003/api/v1/landing/animals')
+          ]);
+
+          if (statsResponse.ok && animalsResponse.ok) {
+            const statsData = await statsResponse.json();
+            const animalsData = await animalsResponse.json();
+
+            setStats({
+              totalAnimals: statsData.totalAnimals || 0,
+              adoptedAnimals: statsData.adoptedAnimals || 0,
+              activeMunicipalities: statsData.totalMunicipalities || 0,
+              registeredUsers: statsData.totalUsers || 0,
+              proceduresCompleted: 0,
+              documentsProcessed: 0
+            });
+
+            setFeaturedAnimals(animalsData);
+            return;
+          }
+        } catch (backendError) {
+          console.log('⚠️ Backend not available, using direct Supabase...');
         }
 
-        // Load featured animals from API
-        const animalsResponse = await fetch('http://localhost:3000/api/v1/landing/animals');
-        if (animalsResponse.ok) {
-          const animalsData = await animalsResponse.json();
-          setFeaturedAnimals(animalsData.map((animal: any) => ({
-            id: animal.id,
-            name: animal.name,
-            species: animal.species,
-            age: animal.age,
-            description: animal.description,
-            image: animal.image,
-            municipality: animal.municipality,
-            urgent: false
-          })));
-        }
+        // Fallback to direct Supabase
+        const [statsData, animalsData] = await Promise.all([
+          supabaseHelpers.getDashboardStats(),
+          supabaseHelpers.getFeaturedAnimals()
+        ]);
+
+        console.log('✅ Stats loaded:', statsData);
+        console.log('✅ Animals loaded:', animalsData.length, 'animals');
+
+        setStats(statsData);
+        setFeaturedAnimals(animalsData);
+
       } catch (error) {
-        console.error('Error loading landing data:', error);
-        // Fallback to default data
+        console.error('❌ Error loading landing data:', error);
+        // Set empty stats on error - no more hardcoded values
         setStats({
-          totalAnimals: 2847,
-          adoptedAnimals: 1923,
-          activeMunicipalities: 47,
-          registeredUsers: 8934,
-          proceduresCompleted: 15672,
-          documentsProcessed: 23891
+          totalAnimals: 0,
+          adoptedAnimals: 0,
+          activeMunicipalities: 0,
+          registeredUsers: 0,
+          proceduresCompleted: 0,
+          documentsProcessed: 0
         });
 
-        setFeaturedAnimals([
-          {
-            id: '1',
-            name: 'Luna',
-            species: 'Cão',
-            age: '2 anos',
-            description: 'Carinhosa e brincalhona, adora crianças',
-            image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
-            municipality: 'São Paulo',
-            urgent: false
-          },
-          {
-            id: '2',
-            name: 'Milo',
-            species: 'Gato',
-            age: '1 ano',
-            description: 'Calmo e independente, ideal para apartamento',
-            image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=200&fit=crop',
-            municipality: 'Rio de Janeiro',
-            urgent: true
-          },
-          {
-            id: '3',
-            name: 'Rex',
-            species: 'Cão',
-            age: '3 anos',
-            description: 'Protetor e leal, ótimo para famílias',
-            image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&h=200&fit=crop',
-            municipality: 'Belo Horizonte',
-            urgent: false
-          }
-        ]);
+        // Set empty animals on error - no more hardcoded values
+        setFeaturedAnimals([]);
       }
     };
 

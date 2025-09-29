@@ -179,7 +179,7 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
           select: { id: true, name: true, species: true, breed: true }
         },
         adoption: {
-          select: { id: true, status: true }
+          select: { id: true, status: true, tutorId: true }
         },
         notifications: {
           select: { id: true, title: true, status: true, createdAt: true }

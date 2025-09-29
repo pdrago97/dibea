@@ -138,14 +138,14 @@ export const checkMunicipality = (req: Request, res: Response, next: NextFunctio
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return next(); // Continue without authentication
     }
 
     const token = authHeader.substring(7);
     const decoded = verifyToken(token);
-    
+
     const user = await prisma.user.findFirst({
       where: {
         id: decoded.userId,
@@ -177,5 +177,56 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     // Log error but continue without authentication
     logger.warn('Optional authentication failed:', error);
     next();
+  }
+};
+
+// N8N Internal API Key Authentication
+// Allows n8n to call internal APIs using a secure API key
+export const authenticateN8N = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+  try {
+    const authHeader = req.headers.authorization;
+    const n8nApiKey = process.env.N8N_INTERNAL_API_KEY;
+
+    if (!n8nApiKey) {
+      logger.error('N8N_INTERNAL_API_KEY not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'Internal authentication not configured'
+      });
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key required'
+      });
+    }
+
+    const providedKey = authHeader.substring(7);
+
+    if (providedKey !== n8nApiKey) {
+      logger.warn('Invalid N8N API key attempt');
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid API key'
+      });
+    }
+
+    // Set a system user context for n8n requests
+    req.user = {
+      userId: 'n8n-system',
+      email: 'n8n@system.internal',
+      role: 'ADMIN', // Grant admin privileges to n8n
+      municipalityId: req.body.municipalityId || '', // Use provided municipality or empty
+    };
+
+    logger.info('N8N authenticated successfully');
+    next();
+  } catch (error) {
+    logger.error('N8N authentication error:', error);
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication failed'
+    });
   }
 };
