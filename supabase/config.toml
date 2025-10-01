@@ -1,6 +1,7 @@
 # Supabase Configuration
+# Get your project_id from: https://app.supabase.com/project/_/settings/general
 
-project_id = "xptonqqagxcpzlgndilj"
+project_id = "your-project-id-here"
 
 [api]
 enabled = true
@@ -12,7 +13,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
@@ -27,5 +28,5 @@ jwt_expiry = 3600
 enable_signup = true
 
 [functions]
-enabled = true
+# Edge Functions configuration
 

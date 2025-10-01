@@ -131,63 +131,91 @@ class ChatService {
   }
 
   private async callRouter(payload: any): Promise<any> {
-    // 🚀 NOVA ARQUITETURA: Tentar N8N primeiro, fallback para backend local
-    const n8nEndpoint = 'https://n8n-moveup-u53084.vm.elestio.app/webhook/dibea-master';
+    // 🚀 WEBHOOK N8N - Workflow "My workflow 4"
+    // PRODUÇÃO: Usa NEXT_PUBLIC_N8N_WEBHOOK_PROD (Chat Trigger - sempre ativo)
+    // TESTE: Usa NEXT_PUBLIC_N8N_WEBHOOK_TEST (Webhook2 - ativo após "Execute Workflow")
+
+    const useTestWebhook = process.env.NEXT_PUBLIC_N8N_USE_TEST === 'true';
+    const n8nUrl = process.env.NEXT_PUBLIC_N8N_URL || 'https://n8n-moveup-u53084.vm.elestio.app';
+
+    // Usar variáveis de ambiente para os webhook IDs
+    const webhookId = useTestWebhook
+      ? process.env.NEXT_PUBLIC_N8N_WEBHOOK_TEST || 'd0fff20e-124c-49f3-8ccf-a615504c5fc1'
+      : process.env.NEXT_PUBLIC_N8N_WEBHOOK_PROD || 'dcfad7e3-e957-47e0-a5e5-7f6ecb400a54';
+
+    const webhookPath = useTestWebhook
+      ? `/webhook-test/${webhookId}`  // Webhook de teste
+      : `/webhook/${webhookId}`;      // Chat Trigger (produção)
+
+    const n8nWebhookUrl = `${n8nUrl}${webhookPath}`;
     const localEndpoint = 'http://localhost:3002/api/v1/agents/chat';
 
-    console.log('🚀 Tentando N8N primeiro:', n8nEndpoint);
+    console.log('🚀 Chamando N8N Webhook:', n8nWebhookUrl);
+    console.log('📊 Modo:', useTestWebhook ? 'TESTE' : 'PRODUÇÃO');
     console.log('📊 Payload enviado:', payload);
 
     try {
-      const response = await fetch(n8nEndpoint, {
+      const response = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          chatInput: payload.userInput,
           userInput: payload.userInput,
-          userMessage: payload.userInput, // Fallback
-          message: payload.userInput, // Fallback
-          context: payload.context,
-          sessionId: payload.sessionId || `session-${Date.now()}`,
-          previousMessages: payload.previousMessages || []
-        }),
-        signal: AbortSignal.timeout(10000) // 10 second timeout
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data && (data.message || data.response)) {
-          console.log('✅ Resposta do N8N:', data);
-          return data;
-        }
-      }
-
-      throw new Error('N8N não retornou resposta válida');
-    } catch (error) {
-      console.warn('⚠️ N8N falhou, usando backend local:', error);
-
-      // Fallback para backend local
-      const response = await fetch(localEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
           message: payload.userInput,
           context: payload.context,
           sessionId: payload.sessionId || `session-${Date.now()}`,
           previousMessages: payload.previousMessages || []
         }),
+        signal: AbortSignal.timeout(30000) // 30 second timeout (AI processing pode demorar)
       });
 
-      if (!response.ok) {
-        throw new Error(`Backend local falhou: ${response.status} ${response.statusText}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Resposta do N8N:', data);
+
+        // O workflow retorna a resposta do SMART AGENT2
+        if (data && (data.output || data.message || data.response)) {
+          return {
+            message: data.output || data.message || data.response,
+            agent: 'DIBEA AI',
+            success: true,
+            data: data
+          };
+        }
       }
 
-      const result = await response.json();
-      console.log('✅ Resposta do backend local:', result);
-      return result;
+      throw new Error(`N8N retornou status ${response.status}`);
+    } catch (error) {
+      console.warn('⚠️ N8N falhou, usando backend local:', error);
+
+      // Fallback para backend local
+      try {
+        const response = await fetch(localEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: payload.userInput,
+            context: payload.context,
+            sessionId: payload.sessionId || `session-${Date.now()}`,
+            previousMessages: payload.previousMessages || []
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend local falhou: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Resposta do backend local:', result);
+        return result;
+      } catch (localError) {
+        console.error('❌ Ambos os endpoints falharam:', localError);
+        throw new Error('Não foi possível conectar ao sistema. Verifique se o N8N está ativo.');
+      }
     }
   }
 

@@ -413,4 +413,3 @@ MIT License - veja [LICENSE](LICENSE)
 ---
 
 **Feito com ❤️ para o bem-estar animal** 🐾
-
