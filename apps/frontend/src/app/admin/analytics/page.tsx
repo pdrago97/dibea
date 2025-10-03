@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  BarChart3, 
-  TrendingUp, 
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  BarChart3,
+  TrendingUp,
   TrendingDown,
-  Users, 
-  PawPrint, 
-  Building, 
+  Users,
+  PawPrint,
+  Building,
   Activity,
   Calendar,
   Filter,
@@ -20,8 +20,8 @@ import {
   Database,
   Eye,
   Heart,
-  Clock
-} from 'lucide-react';
+  Clock,
+} from "lucide-react";
 
 interface AnalyticsData {
   overview: {
@@ -52,13 +52,30 @@ interface AnalyticsData {
     rating: number;
     efficiency: number;
   }>;
+  charts: {
+    weeklyData: Array<{
+      date: string;
+      adoptions: number;
+      newUsers: number;
+    }>;
+    agentPerformance: Array<{
+      agentName: string;
+      interactions: number;
+      successRate: number;
+    }>;
+    municipalityStats: Array<{
+      municipality: string;
+      animals: number;
+      adoptions: number;
+    }>;
+  };
 }
 
 export default function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('30d');
-  const [selectedMetric, setSelectedMetric] = useState('adoptions');
+  const [timeRange, setTimeRange] = useState("30d");
+  const [selectedMetric, setSelectedMetric] = useState("adoptions");
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -67,13 +84,13 @@ export default function AnalyticsDashboard() {
   const fetchAnalyticsData = async () => {
     setLoading(true);
     try {
-      // Fetch real analytics from backend
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/v1/analytics', {
+      // Fetch analytics from Supabase backend
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:3000/api/v1/analytics", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.ok) {
@@ -88,55 +105,29 @@ export default function AnalyticsDashboard() {
             totalUsers: analyticsData.overview.totalUsers,
             totalClinics: 1, // Default value
             adoptionRate: analyticsData.rates.adoptionRate,
-            avgProcessingTime: analyticsData.rates.agentSuccessRate
+            avgProcessingTime: analyticsData.rates.agentSuccessRate,
           },
-          insights: analyticsData.insights,
+          trends: {
+            adoptionsThisMonth: analyticsData.trends?.adoptionsThisMonth || 0,
+            adoptionsLastMonth: analyticsData.trends?.adoptionsLastMonth || 0,
+            newUsersThisMonth: analyticsData.trends?.newUsersThisMonth || 0,
+            newUsersLastMonth: analyticsData.trends?.newUsersLastMonth || 0,
+          },
+          topAnimals: analyticsData.topAnimals || [],
+          clinicPerformance: analyticsData.clinicPerformance || [],
           charts: {
             weeklyData: analyticsData.charts.weeklyData,
             agentPerformance: analyticsData.charts.agentPerformance,
-            municipalityStats: analyticsData.charts.municipalityStats
-          }
+            municipalityStats: analyticsData.charts.municipalityStats,
+          },
         };
 
         setData(realData);
-        setLoading(false);
-        return;
+      } else {
+        console.error("Failed to fetch analytics data:", response.statusText);
       }
-
-      // Fallback to mock data if API fails
-      const mockData: AnalyticsData = {
-        overview: {
-          totalAnimals: 2847,
-          totalAdoptions: 1234,
-          totalUsers: 8934,
-          totalClinics: 23,
-          adoptionRate: 67.5,
-          avgProcessingTime: 12.5
-        },
-        trends: {
-          adoptionsThisMonth: 89,
-          adoptionsLastMonth: 76,
-          newUsersThisMonth: 234,
-          newUsersLastMonth: 198
-        },
-        topAnimals: [
-          { id: '1', name: 'Rex', species: 'Cão', views: 456, inquiries: 23 },
-          { id: '2', name: 'Luna', species: 'Gato', views: 389, inquiries: 18 },
-          { id: '3', name: 'Max', species: 'Cão', views: 312, inquiries: 15 },
-          { id: '4', name: 'Mia', species: 'Gato', views: 287, inquiries: 12 },
-          { id: '5', name: 'Thor', species: 'Cão', views: 245, inquiries: 10 }
-        ],
-        clinicPerformance: [
-          { id: '1', name: 'Clínica Veterinária Central', procedures: 234, rating: 4.8, efficiency: 95 },
-          { id: '2', name: 'Pet Care Clinic', procedures: 189, rating: 4.6, efficiency: 88 },
-          { id: '3', name: 'Veterinária São Francisco', procedures: 156, rating: 4.7, efficiency: 92 },
-          { id: '4', name: 'Animal Hospital Plus', procedures: 134, rating: 4.5, efficiency: 85 }
-        ]
-      };
-      
-      setData(mockData);
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error("Error fetching analytics:", error);
     } finally {
       setLoading(false);
     }
@@ -146,7 +137,7 @@ export default function AnalyticsDashboard() {
     const change = ((current - previous) / previous) * 100;
     return {
       value: Math.abs(change).toFixed(1),
-      isPositive: change > 0
+      isPositive: change > 0,
     };
   };
 
@@ -156,7 +147,7 @@ export default function AnalyticsDashboard() {
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map(i => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-32 bg-gray-200 rounded"></div>
             ))}
           </div>
@@ -171,18 +162,28 @@ export default function AnalyticsDashboard() {
 
   if (!data) return null;
 
-  const adoptionTrend = calculateTrend(data.trends.adoptionsThisMonth, data.trends.adoptionsLastMonth);
-  const userTrend = calculateTrend(data.trends.newUsersThisMonth, data.trends.newUsersLastMonth);
+  const adoptionTrend = calculateTrend(
+    data.trends.adoptionsThisMonth,
+    data.trends.adoptionsLastMonth,
+  );
+  const userTrend = calculateTrend(
+    data.trends.newUsersThisMonth,
+    data.trends.newUsersLastMonth,
+  );
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics & Insights</h1>
-          <p className="text-gray-600">Visualização de dados e métricas do sistema</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Analytics & Insights
+          </h1>
+          <p className="text-gray-600">
+            Visualização de dados e métricas do sistema
+          </p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Filter className="w-4 h-4 mr-2" />
@@ -201,17 +202,17 @@ export default function AnalyticsDashboard() {
 
       {/* Time Range Selector */}
       <div className="flex gap-2">
-        {['7d', '30d', '90d', '1y'].map(range => (
+        {["7d", "30d", "90d", "1y"].map((range) => (
           <Button
             key={range}
             variant={timeRange === range ? "default" : "outline"}
             size="sm"
             onClick={() => setTimeRange(range)}
           >
-            {range === '7d' && '7 dias'}
-            {range === '30d' && '30 dias'}
-            {range === '90d' && '90 dias'}
-            {range === '1y' && '1 ano'}
+            {range === "7d" && "7 dias"}
+            {range === "30d" && "30 dias"}
+            {range === "90d" && "90 dias"}
+            {range === "1y" && "1 ano"}
           </Button>
         ))}
       </div>
@@ -222,8 +223,12 @@ export default function AnalyticsDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total de Animais</p>
-                <p className="text-3xl font-bold text-blue-600">{data.overview.totalAnimals.toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Total de Animais
+                </p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {data.overview.totalAnimals.toLocaleString()}
+                </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
                   <span className="text-sm text-green-600">+12% este mês</span>
@@ -238,16 +243,23 @@ export default function AnalyticsDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Adoções Realizadas</p>
-                <p className="text-3xl font-bold text-green-600">{data.overview.totalAdoptions.toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Adoções Realizadas
+                </p>
+                <p className="text-3xl font-bold text-green-600">
+                  {data.overview.totalAdoptions.toLocaleString()}
+                </p>
                 <div className="flex items-center mt-2">
                   {adoptionTrend.isPositive ? (
                     <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
                   ) : (
                     <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
                   )}
-                  <span className={`text-sm ${adoptionTrend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                    {adoptionTrend.isPositive ? '+' : '-'}{adoptionTrend.value}% vs mês anterior
+                  <span
+                    className={`text-sm ${adoptionTrend.isPositive ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {adoptionTrend.isPositive ? "+" : "-"}
+                    {adoptionTrend.value}% vs mês anterior
                   </span>
                 </div>
               </div>
@@ -260,16 +272,23 @@ export default function AnalyticsDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Usuários Ativos</p>
-                <p className="text-3xl font-bold text-purple-600">{data.overview.totalUsers.toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Usuários Ativos
+                </p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {data.overview.totalUsers.toLocaleString()}
+                </p>
                 <div className="flex items-center mt-2">
                   {userTrend.isPositive ? (
                     <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
                   ) : (
                     <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
                   )}
-                  <span className={`text-sm ${userTrend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                    {userTrend.isPositive ? '+' : '-'}{userTrend.value}% vs mês anterior
+                  <span
+                    className={`text-sm ${userTrend.isPositive ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {userTrend.isPositive ? "+" : "-"}
+                    {userTrend.value}% vs mês anterior
                   </span>
                 </div>
               </div>
@@ -282,8 +301,12 @@ export default function AnalyticsDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Taxa de Adoção</p>
-                <p className="text-3xl font-bold text-orange-600">{data.overview.adoptionRate}%</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Taxa de Adoção
+                </p>
+                <p className="text-3xl font-bold text-orange-600">
+                  {data.overview.adoptionRate}%
+                </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
                   <span className="text-sm text-green-600">+5.2% este mês</span>
@@ -308,10 +331,15 @@ export default function AnalyticsDashboard() {
           <CardContent>
             <div className="space-y-4">
               {data.topAnimals.map((animal, index) => (
-                <div key={animal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div
+                  key={animal.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
+                      <span className="text-sm font-bold text-blue-600">
+                        #{index + 1}
+                      </span>
                     </div>
                     <div>
                       <p className="font-semibold">{animal.name}</p>
@@ -319,8 +347,12 @@ export default function AnalyticsDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{animal.views} visualizações</p>
-                    <p className="text-sm text-gray-600">{animal.inquiries} consultas</p>
+                    <p className="font-semibold">
+                      {animal.views} visualizações
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {animal.inquiries} consultas
+                    </p>
                   </div>
                 </div>
               ))}
@@ -349,17 +381,21 @@ export default function AnalyticsDashboard() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Procedimentos:</span>
-                      <span className="ml-2 font-semibold">{clinic.procedures}</span>
+                      <span className="ml-2 font-semibold">
+                        {clinic.procedures}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-600">Eficiência:</span>
-                      <span className="ml-2 font-semibold">{clinic.efficiency}%</span>
+                      <span className="ml-2 font-semibold">
+                        {clinic.efficiency}%
+                      </span>
                     </div>
                   </div>
                   <div className="mt-2">
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-600 h-2 rounded-full" 
+                      <div
+                        className="bg-green-600 h-2 rounded-full"
                         style={{ width: `${clinic.efficiency}%` }}
                       ></div>
                     </div>
@@ -397,21 +433,27 @@ export default function AnalyticsDashboard() {
               <p className="text-sm text-gray-600">Consultas GraphRAG</p>
             </div>
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-semibold mb-3">Insights Automáticos:</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                <span>Animais de porte médio têm 40% mais chance de adoção</span>
+                <span>
+                  Animais de porte médio têm 40% mais chance de adoção
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span>Tutores com experiência prévia têm 85% de taxa de sucesso</span>
+                <span>
+                  Tutores com experiência prévia têm 85% de taxa de sucesso
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
-                <span>Clínicas parceiras reduziram tempo de processo em 60%</span>
+                <span>
+                  Clínicas parceiras reduziram tempo de processo em 60%
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
@@ -429,7 +471,9 @@ export default function AnalyticsDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tempo Médio de Processo</p>
-                <p className="text-xl font-bold">{data.overview.avgProcessingTime} dias</p>
+                <p className="text-xl font-bold">
+                  {data.overview.avgProcessingTime} dias
+                </p>
               </div>
               <Clock className="w-6 h-6 text-gray-600" />
             </div>
@@ -441,7 +485,9 @@ export default function AnalyticsDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Clínicas Ativas</p>
-                <p className="text-xl font-bold">{data.overview.totalClinics}</p>
+                <p className="text-xl font-bold">
+                  {data.overview.totalClinics}
+                </p>
               </div>
               <Building className="w-6 h-6 text-gray-600" />
             </div>

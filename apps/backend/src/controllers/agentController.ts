@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import { graphService } from '../services/graphService';
-import { prisma } from '../lib/prisma';
-import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { Request, Response } from "express";
+import { graphService } from "../services/graphService";
+import { prisma } from "../lib/prisma";
+import { logger } from "../utils/logger";
+import { v4 as uuidv4 } from "uuid";
 
 export class AgentController {
   // Create Animal via Agent
@@ -14,19 +14,19 @@ export class AgentController {
         breed,
         sex,
         size,
-        birthDate,
+        age,
         weight,
         color,
-        temperament,
         status,
         municipalityId,
-        observations
+        observations,
       } = req.body;
 
       // Validate required fields
       if (!name || !species || !sex || !size || !status || !municipalityId) {
         return res.status(400).json({
-          error: 'Campos obrigatórios: name, species, sex, size, status, municipalityId'
+          error:
+            "Campos obrigatórios: name, species, sex, size, status, municipalityId",
         });
       }
 
@@ -37,20 +37,19 @@ export class AgentController {
       const animal = await prisma.animal.create({
         data: {
           id: animalId,
-          name,
-          species,
-          breed,
-          sex,
-          size,
-          birthDate: birthDate ? new Date(birthDate) : null,
-          weight: weight ? parseFloat(weight) : null,
-          color,
-          temperament,
+          nome: name,
+          especie: species,
+          raca: breed,
+          sexo: sex,
+          porte: size,
+          peso: weight ? parseFloat(weight) : null,
+          cor: color,
+          temperamento: observations || "",
           status,
           municipalityId,
           qrCode,
-          observations
-        }
+          observacoes: observations,
+        },
       });
 
       // Create in Neo4j Graph
@@ -61,14 +60,14 @@ export class AgentController {
         breed,
         sex,
         size,
-        birthDate: birthDate ? new Date(birthDate) : undefined,
+        birthDate: undefined, // Not provided in request
         weight: weight ? parseFloat(weight) : undefined,
         color,
-        temperament,
+        temperament: observations || "",
         status,
         municipalityId,
         qrCode,
-        observations
+        observations,
       });
 
       logger.info(`Animal ${name} criado via agente: ${animalId}`);
@@ -79,15 +78,14 @@ export class AgentController {
         data: {
           id: animalId,
           animal,
-          graphNode
-        }
+          graphNode,
+        },
       });
-
     } catch (error) {
-      logger.error('Erro ao criar animal via agente:', error);
+      logger.error("Erro ao criar animal via agente:", error);
       res.status(500).json({
-        error: 'Erro interno do servidor',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
+        error: "Erro interno do servidor",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
       });
     }
   }
@@ -106,24 +104,24 @@ export class AgentController {
         veterinarianId,
         tutorId,
         status,
-        metadata
+        metadata,
       } = req.body;
 
       // Validate required fields
       if (!animalId || !type || !title || !date || !status) {
         return res.status(400).json({
-          error: 'Campos obrigatórios: animalId, type, title, date, status'
+          error: "Campos obrigatórios: animalId, type, title, date, status",
         });
       }
 
       // Verify animal exists
       const animal = await prisma.animal.findUnique({
-        where: { id: animalId }
+        where: { id: animalId },
       });
 
       if (!animal) {
         return res.status(404).json({
-          error: 'Animal não encontrado'
+          error: "Animal não encontrado",
         });
       }
 
@@ -142,25 +140,26 @@ export class AgentController {
         veterinarianId,
         tutorId,
         status,
-        metadata
+        metadata,
       });
 
-      logger.info(`Procedimento ${title} criado via agente para animal ${animalId}`);
+      logger.info(
+        `Procedimento ${title} criado via agente para animal ${animalId}`,
+      );
 
       res.status(201).json({
         success: true,
         message: `Procedimento ${title} registrado com sucesso!`,
         data: {
           id: procedureId,
-          graphNode
-        }
+          graphNode,
+        },
       });
-
     } catch (error) {
-      logger.error('Erro ao criar procedimento via agente:', error);
+      logger.error("Erro ao criar procedimento via agente:", error);
       res.status(500).json({
-        error: 'Erro interno do servidor',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
+        error: "Erro interno do servidor",
+        details: error instanceof Error ? error.message : "Erro desconhecido",
       });
     }
   }
@@ -172,36 +171,34 @@ export class AgentController {
 
       if (!name) {
         return res.status(400).json({
-          error: 'Parâmetro name é obrigatório'
+          error: "Parâmetro name é obrigatório",
         });
       }
 
       const animals = await prisma.animal.findMany({
         where: {
-          name: {
+          nome: {
             contains: name as string,
-            mode: 'insensitive'
-          }
+          },
         },
         take: 10,
         include: {
           municipality: {
             select: {
-              name: true
-            }
-          }
-        }
+              nome: true,
+            },
+          },
+        },
       });
 
       res.json({
         success: true,
-        data: animals
+        data: animals,
       });
-
     } catch (error) {
-      logger.error('Erro ao buscar animais:', error);
+      logger.error("Erro ao buscar animais:", error);
       res.status(500).json({
-        error: 'Erro interno do servidor'
+        error: "Erro interno do servidor",
       });
     }
   }
@@ -218,14 +215,13 @@ export class AgentController {
         success: true,
         data: {
           graph: graphData,
-          insights
-        }
+          insights,
+        },
       });
-
     } catch (error) {
-      logger.error('Erro ao buscar grafo do animal:', error);
+      logger.error("Erro ao buscar grafo do animal:", error);
       res.status(500).json({
-        error: 'Erro interno do servidor'
+        error: "Erro interno do servidor",
       });
     }
   }
@@ -242,12 +238,11 @@ export class AgentController {
         success: true,
         extractedText,
         confidence: 0.95,
-        language: 'pt-BR'
+        language: "pt-BR",
       });
-
     } catch (error) {
-      logger.error('Erro no OCR:', error);
-      res.status(500).json({ error: 'Erro no processamento OCR' });
+      logger.error("Erro no OCR:", error);
+      res.status(500).json({ error: "Erro no processamento OCR" });
     }
   }
 
@@ -259,20 +254,19 @@ export class AgentController {
       // Simulate computer vision analysis
       const analysis = {
         animalDetected: true,
-        species: 'CANINO',
-        breed: 'SRD',
-        conditions: ['saudável'],
-        confidence: 0.92
+        species: "CANINO",
+        breed: "SRD",
+        conditions: ["saudável"],
+        confidence: 0.92,
       };
 
       res.json({
         success: true,
-        analysis
+        analysis,
       });
-
     } catch (error) {
-      logger.error('Erro na análise de imagem:', error);
-      res.status(500).json({ error: 'Erro na análise de imagem' });
+      logger.error("Erro na análise de imagem:", error);
+      res.status(500).json({ error: "Erro na análise de imagem" });
     }
   }
 
@@ -284,20 +278,20 @@ export class AgentController {
       if (!cpf) {
         return res.status(400).json({
           success: false,
-          error: 'CPF é obrigatório'
+          error: "CPF é obrigatório",
         });
       }
 
       // Clean CPF (remove non-digits)
-      const cleanCPF = cpf.replace(/\D/g, '');
+      const cleanCPF = cpf.replace(/\D/g, "");
 
       // Basic format validation
       if (cleanCPF.length !== 11) {
         return res.json({
           success: true,
           valid: false,
-          error: 'CPF deve ter 11 dígitos',
-          cpf: cleanCPF
+          error: "CPF deve ter 11 dígitos",
+          cpf: cleanCPF,
         });
       }
 
@@ -306,8 +300,8 @@ export class AgentController {
         return res.json({
           success: true,
           valid: false,
-          error: 'CPF inválido',
-          cpf: cleanCPF
+          error: "CPF inválido",
+          cpf: cleanCPF,
         });
       }
 
@@ -318,19 +312,19 @@ export class AgentController {
         return res.json({
           success: true,
           valid: false,
-          error: 'CPF inválido',
-          cpf: cleanCPF
+          error: "CPF inválido",
+          cpf: cleanCPF,
         });
       }
 
       // Try to validate with Receita Federal API (optional)
-      let rfbStatus = 'not_checked';
+      let rfbStatus = "not_checked";
       try {
         // Note: Real implementation would use official API
         // For demo, we'll simulate the validation
-        rfbStatus = 'valid';
+        rfbStatus = "valid";
       } catch (rfbError) {
-        logger.warn('Erro ao consultar Receita Federal:', rfbError);
+        logger.warn("Erro ao consultar Receita Federal:", rfbError);
         // Continue with basic validation
       }
 
@@ -339,12 +333,11 @@ export class AgentController {
         valid: true,
         cpf: cleanCPF,
         formatted: this.formatCPF(cleanCPF),
-        rfbStatus
+        rfbStatus,
       });
-
     } catch (error) {
-      logger.error('Erro na validação de CPF:', error);
-      res.status(500).json({ error: 'Erro na validação de CPF' });
+      logger.error("Erro na validação de CPF:", error);
+      res.status(500).json({ error: "Erro na validação de CPF" });
     }
   }
 
@@ -373,7 +366,7 @@ export class AgentController {
 
   // Format CPF for display
   private formatCPF(cpf: string): string {
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   }
 
   // Check Tutor Duplicates
@@ -382,18 +375,17 @@ export class AgentController {
       const { cpf } = req.query;
 
       const existingTutor = await prisma.tutor.findFirst({
-        where: { cpf: cpf as string }
+        where: { cpf: cpf as string },
       });
 
       res.json({
         success: true,
         exists: !!existingTutor,
-        tutor: existingTutor || null
+        tutor: existingTutor || null,
       });
-
     } catch (error) {
-      logger.error('Erro ao verificar duplicatas:', error);
-      res.status(500).json({ error: 'Erro ao verificar duplicatas' });
+      logger.error("Erro ao verificar duplicatas:", error);
+      res.status(500).json({ error: "Erro ao verificar duplicatas" });
     }
   }
 
@@ -405,19 +397,18 @@ export class AgentController {
       // Simulate AI profile analysis
       const analysis = {
         suitabilityScore: 0.85,
-        recommendations: ['Adequado para animais de porte médio'],
+        recommendations: ["Adequado para animais de porte médio"],
         riskFactors: [],
-        strengths: ['Experiência com animais', 'Moradia adequada']
+        strengths: ["Experiência com animais", "Moradia adequada"],
       };
 
       res.json({
         success: true,
-        analysis
+        analysis,
       });
-
     } catch (error) {
-      logger.error('Erro na análise de perfil:', error);
-      res.status(500).json({ error: 'Erro na análise de perfil' });
+      logger.error("Erro na análise de perfil:", error);
+      res.status(500).json({ error: "Erro na análise de perfil" });
     }
   }
 
@@ -430,19 +421,18 @@ export class AgentController {
 
       res.json({
         success: true,
-        message: 'Sistema de agentes funcionando corretamente',
+        message: "Sistema de agentes funcionando corretamente",
         timestamp: new Date().toISOString(),
         services: {
-          postgresql: 'connected',
-          neo4j: 'connected'
-        }
+          postgresql: "connected",
+          neo4j: "connected",
+        },
       });
-
     } catch (error) {
-      logger.error('Health check falhou:', error);
+      logger.error("Health check falhou:", error);
       res.status(500).json({
         success: false,
-        error: 'Falha na verificação de saúde do sistema'
+        error: "Falha na verificação de saúde do sistema",
       });
     }
   }
@@ -454,25 +444,24 @@ export class AgentController {
 
       let results;
 
-      if (type === 'sql') {
+      if (type === "sql") {
         // Execute PostgreSQL query
         results = await prisma.$queryRawUnsafe(query);
-      } else if (type === 'cypher') {
+      } else if (type === "cypher") {
         // Execute Neo4j query
         results = await graphService.executeQuery(query);
       } else {
-        return res.status(400).json({ error: 'Tipo de query inválido' });
+        return res.status(400).json({ error: "Tipo de query inválido" });
       }
 
       res.json({
         success: true,
         results,
-        queryType: type
+        queryType: type,
       });
-
     } catch (error) {
-      logger.error('Erro ao executar query:', error);
-      res.status(500).json({ error: 'Erro ao executar query' });
+      logger.error("Erro ao executar query:", error);
+      res.status(500).json({ error: "Erro ao executar query" });
     }
   }
 
@@ -483,20 +472,19 @@ export class AgentController {
 
       // Simulate analytics generation
       const analytics = {
-        summary: 'Análise gerada com sucesso',
-        insights: ['Insight 1', 'Insight 2'],
-        trends: ['Tendência crescente'],
-        recommendations: ['Recomendação 1']
+        summary: "Análise gerada com sucesso",
+        insights: ["Insight 1", "Insight 2"],
+        trends: ["Tendência crescente"],
+        recommendations: ["Recomendação 1"],
       };
 
       res.json({
         success: true,
-        analytics
+        analytics,
       });
-
     } catch (error) {
-      logger.error('Erro ao gerar analytics:', error);
-      res.status(500).json({ error: 'Erro ao gerar analytics' });
+      logger.error("Erro ao gerar analytics:", error);
+      res.status(500).json({ error: "Erro ao gerar analytics" });
     }
   }
 
@@ -507,20 +495,19 @@ export class AgentController {
 
       // Simulate visualization creation
       const visualization = {
-        chartUrl: '/charts/generated-chart.png',
+        chartUrl: "/charts/generated-chart.png",
         chartType,
         title,
-        data: data
+        data: data,
       };
 
       res.json({
         success: true,
-        visualization
+        visualization,
       });
-
     } catch (error) {
-      logger.error('Erro ao criar visualização:', error);
-      res.status(500).json({ error: 'Erro ao criar visualização' });
+      logger.error("Erro ao criar visualização:", error);
+      res.status(500).json({ error: "Erro ao criar visualização" });
     }
   }
 
@@ -535,18 +522,17 @@ export class AgentController {
         title: reportData.title,
         type: reportData.queryType,
         data: reportData,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
 
       res.json({
         success: true,
-        message: 'Relatório gerado com sucesso!',
-        report
+        message: "Relatório gerado com sucesso!",
+        report,
       });
-
     } catch (error) {
-      logger.error('Erro ao gerar relatório:', error);
-      res.status(500).json({ error: 'Erro ao gerar relatório' });
+      logger.error("Erro ao gerar relatório:", error);
+      res.status(500).json({ error: "Erro ao gerar relatório" });
     }
   }
 
@@ -560,19 +546,18 @@ export class AgentController {
       const tutor = await prisma.tutor.create({
         data: {
           id: tutorId,
-          ...tutorData
-        }
+          ...tutorData,
+        },
       });
 
       res.status(201).json({
         success: true,
-        message: 'Tutor cadastrado com sucesso!',
-        data: { id: tutorId, tutor }
+        message: "Tutor cadastrado com sucesso!",
+        data: { id: tutorId, tutor },
       });
-
     } catch (error) {
-      logger.error('Erro ao criar tutor via agente:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      logger.error("Erro ao criar tutor via agente:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
     }
   }
 
@@ -586,18 +571,17 @@ export class AgentController {
       const document = {
         id: documentId,
         ...documentData,
-        processedAt: new Date()
+        processedAt: new Date(),
       };
 
       res.status(201).json({
         success: true,
-        message: 'Documento processado com sucesso!',
-        data: { id: documentId, document }
+        message: "Documento processado com sucesso!",
+        data: { id: documentId, document },
       });
-
     } catch (error) {
-      logger.error('Erro ao processar documento via agente:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      logger.error("Erro ao processar documento via agente:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
     }
   }
 }

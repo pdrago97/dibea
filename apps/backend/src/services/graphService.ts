@@ -1,5 +1,5 @@
-import neo4j, { Driver, Session, Result } from 'neo4j-driver';
-import { logger } from '../utils/logger';
+import neo4j, { Driver, Session, Result } from "neo4j-driver";
+import { logger } from "../utils/logger";
 
 export interface GraphNode {
   id: string;
@@ -27,39 +27,42 @@ class GraphService {
   private password: string;
 
   constructor() {
-    this.uri = process.env.NEO4J_URI || 'bolt://localhost:7687';
-    this.username = process.env.NEO4J_USERNAME || 'neo4j';
-    this.password = process.env.NEO4J_PASSWORD || 'dibea123';
-    
+    this.uri = process.env.NEO4J_URI || "bolt://localhost:7687";
+    this.username = process.env.NEO4J_USERNAME || "neo4j";
+    this.password = process.env.NEO4J_PASSWORD || "dibea123";
+
     this.driver = neo4j.driver(
       this.uri,
       neo4j.auth.basic(this.username, this.password),
       {
         disableLosslessIntegers: true,
         logging: {
-          level: 'info',
-          logger: (level, message) => logger.info(`Neo4j ${level}: ${message}`)
-        }
-      }
+          level: "info",
+          logger: (level, message) => logger.info(`Neo4j ${level}: ${message}`),
+        },
+      },
     );
   }
 
   async connect(): Promise<void> {
     try {
       await this.driver.verifyConnectivity();
-      logger.info('✅ Connected to Neo4j database');
+      logger.info("✅ Connected to Neo4j database");
     } catch (error) {
-      logger.error('❌ Failed to connect to Neo4j:', error);
+      logger.error("❌ Failed to connect to Neo4j:", error);
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
     await this.driver.close();
-    logger.info('🔌 Disconnected from Neo4j database');
+    logger.info("🔌 Disconnected from Neo4j database");
   }
 
-  private async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<Result> {
+  async executeQuery(
+    query: string,
+    parameters: Record<string, any> = {},
+  ): Promise<Result> {
     const session: Session = this.driver.session();
     try {
       const result = await session.run(query, parameters);
@@ -110,12 +113,12 @@ class GraphService {
 
     const result = await this.executeQuery(query, animalData);
     const record = result.records[0];
-    const node = record.get('a');
+    const node = record.get("a");
 
     return {
       id: node.properties.id,
       labels: node.labels,
-      properties: node.properties
+      properties: node.properties,
     };
   }
 
@@ -123,7 +126,12 @@ class GraphService {
   async createDocumentNode(documentData: {
     id: string;
     animalId: string;
-    type: 'photo' | 'medical_report' | 'prescription' | 'invoice' | 'certificate';
+    type:
+      | "photo"
+      | "medical_report"
+      | "prescription"
+      | "invoice"
+      | "certificate";
     fileName: string;
     fileUrl: string;
     mimeType: string;
@@ -153,12 +161,12 @@ class GraphService {
 
     const result = await this.executeQuery(query, documentData);
     const record = result.records[0];
-    const node = record.get('d');
+    const node = record.get("d");
 
     return {
       id: node.properties.id,
       labels: node.labels,
-      properties: node.properties
+      properties: node.properties,
     };
   }
 
@@ -166,7 +174,13 @@ class GraphService {
   async createEventNode(eventData: {
     id: string;
     animalId: string;
-    type: 'rescue' | 'medical_procedure' | 'adoption' | 'vaccination' | 'surgery' | 'checkup';
+    type:
+      | "rescue"
+      | "medical_procedure"
+      | "adoption"
+      | "vaccination"
+      | "surgery"
+      | "checkup";
     title: string;
     description?: string;
     date: Date;
@@ -174,7 +188,7 @@ class GraphService {
     cost?: number;
     veterinarianId?: string;
     tutorId?: string;
-    status: 'scheduled' | 'completed' | 'cancelled';
+    status: "scheduled" | "completed" | "cancelled";
     metadata?: Record<string, any>;
   }): Promise<GraphNode> {
     const query = `
@@ -200,12 +214,12 @@ class GraphService {
 
     const result = await this.executeQuery(query, eventData);
     const record = result.records[0];
-    const node = record.get('e');
+    const node = record.get("e");
 
     return {
       id: node.properties.id,
       labels: node.labels,
-      properties: node.properties
+      properties: node.properties,
     };
   }
 
@@ -214,7 +228,7 @@ class GraphService {
     fromNodeId: string,
     toNodeId: string,
     relationshipType: string,
-    properties: Record<string, any> = {}
+    properties: Record<string, any> = {},
   ): Promise<GraphRelationship> {
     const query = `
       MATCH (from), (to)
@@ -223,16 +237,20 @@ class GraphService {
       RETURN r, id(from) as fromId, id(to) as toId
     `;
 
-    const result = await this.executeQuery(query, { fromNodeId, toNodeId, ...properties });
+    const result = await this.executeQuery(query, {
+      fromNodeId,
+      toNodeId,
+      ...properties,
+    });
     const record = result.records[0];
-    const relationship = record.get('r');
+    const relationship = record.get("r");
 
     return {
       id: relationship.identity.toString(),
       type: relationship.type,
-      startNodeId: record.get('fromId').toString(),
-      endNodeId: record.get('toId').toString(),
-      properties: relationship.properties
+      startNodeId: record.get("fromId").toString(),
+      endNodeId: record.get("toId").toString(),
+      properties: relationship.properties,
     };
   }
 
@@ -255,22 +273,22 @@ class GraphService {
     const nodeIds = new Set<string>();
     const relationshipIds = new Set<string>();
 
-    result.records.forEach(record => {
+    result.records.forEach((record) => {
       // Process nodes
-      ['a', 'connected', 'secondLevel'].forEach(nodeKey => {
+      ["a", "connected", "secondLevel"].forEach((nodeKey) => {
         const node = record.get(nodeKey);
         if (node && !nodeIds.has(node.properties.id)) {
           nodes.push({
             id: node.properties.id,
             labels: node.labels,
-            properties: node.properties
+            properties: node.properties,
           });
           nodeIds.add(node.properties.id);
         }
       });
 
       // Process relationships
-      ['r1', 'r2'].forEach(relKey => {
+      ["r1", "r2"].forEach((relKey) => {
         const rel = record.get(relKey);
         if (rel && !relationshipIds.has(rel.identity.toString())) {
           relationships.push({
@@ -278,7 +296,7 @@ class GraphService {
             type: rel.type,
             startNodeId: rel.start.toString(),
             endNodeId: rel.end.toString(),
-            properties: rel.properties
+            properties: rel.properties,
           });
           relationshipIds.add(rel.identity.toString());
         }
@@ -291,7 +309,7 @@ class GraphService {
   // Search for patterns in the graph
   async searchPatterns(query: GraphQuery): Promise<any[]> {
     const result = await this.executeQuery(query.query, query.parameters);
-    return result.records.map(record => record.toObject());
+    return result.records.map((record) => record.toObject());
   }
 
   // Get insights and analytics
@@ -317,10 +335,10 @@ class GraphService {
     const record = result.records[0];
 
     return {
-      totalDocuments: record.get('totalDocuments').toNumber(),
-      totalEvents: record.get('totalEvents').toNumber(),
-      totalCosts: record.get('totalCosts') || 0,
-      lastEvent: record.get('lastEventDate')
+      totalDocuments: record.get("totalDocuments").toNumber(),
+      totalEvents: record.get("totalEvents").toNumber(),
+      totalCosts: record.get("totalCosts") || 0,
+      lastEvent: record.get("lastEventDate"),
     };
   }
 }

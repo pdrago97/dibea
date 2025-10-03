@@ -1,25 +1,25 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import { Request, Response } from "express";
+import { z } from "zod";
+import { prisma } from "../lib/prisma";
 
 // Validation schemas
 const createAnimalSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  species: z.enum(['CANINO', 'FELINO', 'OUTROS']),
+  name: z.string().min(1, "Nome é obrigatório"),
+  species: z.enum(["CANINO", "FELINO", "OUTROS"]),
   breed: z.string().optional(),
-  sex: z.enum(['MACHO', 'FEMEA']),
-  size: z.enum(['PEQUENO', 'MEDIO', 'GRANDE']),
+  sex: z.enum(["MACHO", "FEMEA"]),
+  size: z.enum(["PEQUENO", "MEDIO", "GRANDE"]),
   birthDate: z.string().optional(),
   weight: z.number().min(0).optional(),
   color: z.string().optional(),
   temperament: z.string().optional(),
   observations: z.string().optional(),
-  status: z.enum(['DISPONIVEL', 'ADOTADO', 'TRATAMENTO', 'OBITO', 'PERDIDO']).default('DISPONIVEL'),
-  qrCode: z.string().optional(), // Made optional for n8n integration
+  status: z
+    .enum(["DISPONIVEL", "ADOTADO", "EM_TRATAMENTO", "OBITO", "PERDIDO"])
+    .default("DISPONIVEL"),
+  qrCode: z.string().optional(),
   municipalityId: z.string(),
-  microchipId: z.string().optional()
+  microchipId: z.string().optional(),
 });
 
 const updateAnimalSchema = createAnimalSchema.partial();
@@ -35,14 +35,15 @@ export const getAnimals = async (req: Request, res: Response): Promise<any> => {
       species,
       status,
       municipalityId,
-      search
+      search,
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
+    // Build where clause
     const where: any = {};
-    
-    // Filters
+
+    // Apply filters
     if (species) where.species = species;
     if (status) where.status = status;
     if (municipalityId) where.municipalityId = municipalityId;
@@ -54,21 +55,26 @@ export const getAnimals = async (req: Request, res: Response): Promise<any> => {
       ];
     }
 
+    // Execute query with Prisma
     const [animals, total] = await Promise.all([
       prisma.animal.findMany({
         where,
-        skip,
-        take: Number(limit),
         include: {
           municipality: {
             select: { id: true, name: true }
+          },
+          microchip: {
+            select: { id: true, number: true, status: true }
           }
         },
+        skip,
+        take: Number(limit),
         orderBy: { createdAt: 'desc' }
       }),
       prisma.animal.count({ where })
     ]);
 
+    // No need for mapping - Prisma returns English field names
     res.status(200).json({
       success: true,
       data: animals,
@@ -80,10 +86,11 @@ export const getAnimals = async (req: Request, res: Response): Promise<any> => {
       }
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in getAnimals:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: 'Erro ao buscar animais',
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -101,9 +108,18 @@ export const getAnimal = async (req: Request, res: Response): Promise<any> => {
         municipality: {
           select: { id: true, name: true }
         },
+        microchip: {
+          select: { id: true, number: true, status: true }
+        },
         adoptions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
+          include: {
+            tutor: {
+              select: { id: true, name: true, email: true, phone: true }
+            }
+          }
+        },
+        photos: {
+          orderBy: { order: 'asc' }
         }
       }
     });
@@ -111,19 +127,19 @@ export const getAnimal = async (req: Request, res: Response): Promise<any> => {
     if (!animal) {
       return res.status(404).json({
         success: false,
-        message: 'Animal não encontrado'
+        message: "Animal não encontrado",
       });
     }
 
     res.status(200).json({
       success: true,
-      data: animal
+      data: animal,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };
@@ -131,7 +147,10 @@ export const getAnimal = async (req: Request, res: Response): Promise<any> => {
 // @desc    Create new animal
 // @route   POST /api/v1/animals
 // @access  Private
-export const createAnimal = async (req: Request, res: Response): Promise<any> => {
+export const createAnimal = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
   try {
     const validatedData = createAnimalSchema.parse(req.body);
 
@@ -141,33 +160,48 @@ export const createAnimal = async (req: Request, res: Response): Promise<any> =>
       animalData.birthDate = new Date(animalData.birthDate);
     }
 
+    // Validate municipality exists
+    const municipality = await prisma.municipality.findUnique({
+      where: { id: animalData.municipalityId }
+    });
+
+    if (!municipality) {
+      return res.status(400).json({
+        success: false,
+        message: "Município não encontrado"
+      });
+    }
+
     const animal = await prisma.animal.create({
       data: animalData,
       include: {
         municipality: {
           select: { id: true, name: true }
         },
+        microchip: {
+          select: { id: true, number: true, status: true }
+        }
       }
     });
 
     res.status(201).json({
       success: true,
       data: animal,
-      message: 'Animal cadastrado com sucesso'
+      message: "Animal cadastrado com sucesso",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: 'Dados inválidos',
-        errors: error.errors
+        message: "Dados inválidos",
+        errors: error.errors,
       });
     }
 
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };
@@ -175,7 +209,10 @@ export const createAnimal = async (req: Request, res: Response): Promise<any> =>
 // @desc    Update animal
 // @route   PUT /api/v1/animals/:id
 // @access  Private
-export const updateAnimal = async (req: Request, res: Response): Promise<any> => {
+export const updateAnimal = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
   try {
     const { id } = req.params;
     const validatedData = updateAnimalSchema.parse(req.body);
@@ -188,7 +225,7 @@ export const updateAnimal = async (req: Request, res: Response): Promise<any> =>
     if (!existingAnimal) {
       return res.status(404).json({
         success: false,
-        message: 'Animal não encontrado'
+        message: "Animal não encontrado",
       });
     }
 
@@ -204,28 +241,31 @@ export const updateAnimal = async (req: Request, res: Response): Promise<any> =>
       include: {
         municipality: {
           select: { id: true, name: true }
+        },
+        microchip: {
+          select: { id: true, number: true, status: true }
         }
-      }
     });
 
     res.status(200).json({
       success: true,
       data: animal,
-      message: 'Animal atualizado com sucesso'
+      message: "Animal atualizado com sucesso",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        message: 'Dados inválidos',
-        errors: error.errors
+        message: "Dados inválidos",
+        errors: error.errors,
       });
     }
 
-    console.error(error);
+    console.error('Error in updateAnimal:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro ao atualizar animal",
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -233,7 +273,10 @@ export const updateAnimal = async (req: Request, res: Response): Promise<any> =>
 // @desc    Delete animal
 // @route   DELETE /api/v1/animals/:id
 // @access  Private
-export const deleteAnimal = async (req: Request, res: Response): Promise<any> => {
+export const deleteAnimal = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
   try {
     const { id } = req.params;
 
@@ -245,7 +288,7 @@ export const deleteAnimal = async (req: Request, res: Response): Promise<any> =>
     if (!existingAnimal) {
       return res.status(404).json({
         success: false,
-        message: 'Animal não encontrado'
+        message: "Animal não encontrado",
       });
     }
 
@@ -255,13 +298,14 @@ export const deleteAnimal = async (req: Request, res: Response): Promise<any> =>
 
     res.status(200).json({
       success: true,
-      message: 'Animal removido com sucesso'
+      message: "Animal removido com sucesso",
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in deleteAnimal:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro ao remover animal",
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };

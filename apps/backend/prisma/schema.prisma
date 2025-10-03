@@ -1,4 +1,4 @@
-// Prisma schema for SQLite demo
+// Prisma schema for DIBEA - Exact match with Supabase migrations
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,88 +8,714 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Simplified models for demo
+// =====================================================
+// ENUM TYPES
+// =====================================================
+
+enum UserRole {
+  CIDADAO
+  TUTOR
+  FUNCIONARIO
+  VETERINARIO
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AnimalSpecies {
+  CANINO
+  FELINO
+  OUTROS
+}
+
+enum AnimalSex {
+  MACHO
+  FEMEA
+}
+
+enum AnimalSize {
+  PEQUENO
+  MEDIO
+  GRANDE
+}
+
+enum AnimalStatus {
+  DISPONIVEL
+  ADOTADO
+  EM_TRATAMENTO
+  OBITO
+  PERDIDO
+}
+
+enum AdoptionStatus {
+  SOLICITADA
+  EM_ANALISE
+  APROVADA
+  REJEITADA
+  CONCLUIDA
+  CANCELADA
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  REALIZADO
+  CANCELADO
+  FALTOU
+}
+
+enum CampaignStatus {
+  PLANEJADA
+  INSCRICOES_ABERTAS
+  EM_ANDAMENTO
+  ENCERRADA
+  CANCELADA
+}
+
+enum ComplaintStatus {
+  ABERTA
+  EM_ANDAMENTO
+  RESOLVIDA
+  ARQUIVADA
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+enum NotificationPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+// =====================================================
+// MODELS
+// =====================================================
+
+model Municipality {
+  id            String   @id @default(uuid())
+  name          String   @map("nome")
+  cnpj          String   @unique
+  address       String?  @map("endereco")
+  phone         String?  @map("telefone")
+  email         String?
+  settings      Json     @default("{}") @map("configuracoes")
+  active        Boolean  @default(true) @map("ativo")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  animals       Animal[]
+  users         User[]
+  clinics       Clinica[]
+  campaigns     Campaign[]
+  complaints    Complaint[]
+  microchips    Microchip[]
+  products      Produto[]
+  rgas          Rga[]
+  appointments  Appointment[]
+  tutors        Tutor[]
+  attendances   Attendance[]
+
+  @@map("municipios")
+}
+
 model User {
   id            String   @id @default(uuid())
-  email         String   @unique
-  passwordHash  String   @map("password_hash")
-  name          String
-  role          String   // ADMIN, FUNCIONARIO, VETERINARIO, CIDADAO
+  email         String?  @unique
+  phone         String?  @unique
+  passwordHash  String?  @map("password_hash")
+  role          UserRole @default(CIDADAO)
+  tutorProfileId String? @map("tutor_profile_id")
+  whatsappId    String?  @map("whatsapp_id")
+  whatsappVerified Boolean @default(false) @map("whatsapp_verified")
   municipalityId String? @map("municipality_id")
-  isActive      Boolean  @default(true) @map("is_active")
+  active        Boolean  @default(true)
+  lastLogin     DateTime? @map("last_login")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
   municipality  Municipality? @relation(fields: [municipalityId], references: [id])
-  adoptions     Adoption[]
+  tutorProfile  Tutor?       @relation("UserTutorProfile")
+  adocoes       Adoption[]   @relation("AdoptionFuncionario")
+  agendamentos  Appointment[] @relation("AppointmentFuncionario")
+  agendamentosVet Appointment[] @relation("AppointmentVeterinario")
+  atendimentos  Attendance[] @relation("AttendanceVeterinario")
+  campanhas     Campaign[]   @relation("CampaignCreatedBy")
+  denuncias     Complaint[]  @relation("ComplaintResponsavel")
   agentInteractions AgentInteraction[]
-  notifications Notification[]
-  createdTasks  Task[] @relation("TaskCreator")
-  assignedTasks Task[] @relation("TaskAssignee")
+  notificacoes  Notification[]
+  conversasWhatsapp ConversaWhatsapp[] @relation("ConversaFuncionario")
+  conversasWhatsappUser ConversaWhatsapp[]
+  mensagensWhatsapp MensagemWhatsapp[]
+  logsAuditoria LogAuditoria[]
+  preferenciasNotificacao PreferenciaNotificacao[]
+  tasksCreated  Task[] @relation("TaskCreator")
+  tasksAssigned Task[] @relation("TaskAssignee")
   conversationContexts ConversationContext[]
 
   @@map("users")
 }
 
-model Municipality {
-  id        String   @id @default(uuid())
-  name      String
-  state     String
-  email     String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model Tutor {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  cpf                   String   @unique
+  rg                    String?
+  name                  String   @map("nome")
+  email                 String?
+  phone                 String?  @map("telefone")
+  fullAddress           String?  @map("endereco_completo")
+  zipCode               String?  @map("cep")
+  city                  String?  @map("cidade")
+  state                 String?  @map("estado")
+  housingType           String?  @map("tipo_moradia")
+  hasExperience         Boolean  @default(false) @map("tem_experiencia")
+  hasOtherPets          Boolean  @default(false) @map("tem_outros_pets")
+  hasYard               Boolean  @default(false) @map("tem_quintal")
+  cpfVerified           Boolean  @default(false) @map("cpf_verified")
+  backgroundCheckStatus String   @default("PENDING") @map("background_check_status")
+  status                String   @default("ATIVO")
+  municipalityId        String   @map("municipality_id")
+  observations          String?  @map("observacoes")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   // Relations
-  animals   Animal[]
-  users     User[]
+  user                  User         @relation("UserTutorProfile", fields: [userId], references: [id], onDelete: Cascade)
+  municipality          Municipality @relation(fields: [municipalityId], references: [id])
+  adoptions             Adoption[]
+  appointments          Appointment[]
+  campaignRegistrations InscricaoCampanha[]
+  rgas                  Rga[]
 
-  @@map("municipalities")
+  @@map("tutores")
+}
+
+model Microchip {
+  id                      String    @id @default(uuid())
+  number                  String    @unique @map("numero")
+  applicationDate         DateTime? @map("data_aplicacao")
+  responsibleVeterinarian String?   @map("veterinario_responsavel")
+  applicationLocation     String?   @map("local_aplicacao")
+  status                  String    @default("ESTOQUE")
+  municipalityId          String    @map("municipality_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  municipality            Municipality @relation(fields: [municipalityId], references: [id])
+  animal                  Animal?
+
+  @@map("microchips")
 }
 
 model Animal {
-  id            String   @id @default(uuid())
-  name          String
-  species       String   // CANINO, FELINO, OUTROS
-  breed         String?
-  sex           String   // MACHO, FEMEA
-  age           Int?
-  weight        Float?
-  size          String?  // PEQUENO, MEDIO, GRANDE
-  color         String?
-  description   String?
-  status        String   @default("DISPONIVEL") // DISPONIVEL, ADOTADO, TRATAMENTO, OBITO
-  municipalityId String  @map("municipality_id")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id            String        @id @default(uuid())
+  name          String        @map("nome")
+  species       AnimalSpecies @map("especie")
+  breed         String?       @map("raca")
+  sex           AnimalSex     @map("sexo")
+  size          AnimalSize    @map("porte")
+  birthDate     DateTime?     @map("data_nascimento")
+  weight        Decimal?      @db.Decimal(5,2) @map("peso")
+  color         String?       @map("cor")
+  temperament   String?       @map("temperamento")
+  observations  String?       @map("observacoes")
+  status        AnimalStatus  @default(DISPONIVEL)
+  qrCode        String?       @unique @map("qr_code")
+  microchipId   String?       @unique @map("microchip_id")
+  municipalityId String       @map("municipality_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  municipality  Municipality @relation(fields: [municipalityId], references: [id])
+  municipality  Municipality  @relation(fields: [municipalityId], references: [id])
+  microchip     Microchip?    @relation(fields: [microchipId], references: [id])
+  photos        FotoAnimal[]  @relation("AnimalPhotos")
   adoptions     Adoption[]
-  notifications Notification[]
+  appointments  Appointment[]
+  attendances   Attendance[]
+  campaignRegistrations InscricaoCampanha[]
+  rgas          Rga[]
   tasks         Task[]
 
-  @@map("animals")
+  @@map("animais")
+}
+
+model FotoAnimal {
+  id          String   @id @default(uuid())
+  animalId    String   @map("animal_id")
+  url         String
+  fileName    String?  @map("nome_arquivo")
+  order       Int      @default(0) @map("ordem")
+  isPrimary   Boolean  @default(false) @map("principal")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  animal      Animal   @relation("AnimalPhotos", fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@map("fotos_animal")
 }
 
 model Adoption {
-  id        String   @id @default(uuid())
-  animalId  String   @map("animal_id")
-  tutorId   String   @map("tutor_id")
-  status    String   @default("PENDENTE") // PENDENTE, APROVADA, REJEITADA
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                  String         @id @default(uuid())
+  animalId            String         @map("animal_id")
+  tutorId             String         @map("tutor_id")
+  employeeId          String?        @map("funcionario_id")
+  requestDate         DateTime       @default(now()) @map("data_solicitacao")
+  approvalDate        DateTime?      @map("data_aprovacao")
+  deliveryDate        DateTime?      @map("data_entrega")
+  interestReason      String?        @map("motivo_interesse")
+  interviewNotes      String?        @map("observacoes_entrevista")
+  rejectionReason     String?        @map("motivo_rejeicao")
+  status              AdoptionStatus @default(SOLICITADA)
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  animal    Animal @relation(fields: [animalId], references: [id])
-  tutor     User   @relation(fields: [tutorId], references: [id])
-  notifications Notification[]
-  tasks     Task[]
+  animal              Animal         @relation(fields: [animalId], references: [id])
+  tutor               Tutor          @relation(fields: [tutorId], references: [id])
+  employee            User?          @relation("AdoptionFuncionario", fields: [employeeId], references: [id])
+  tasks               Task[]
 
-  @@map("adoptions")
+  @@map("adocoes")
 }
+
+model Clinica {
+  id          String   @id @default(uuid())
+  nome        String
+  cnpj        String   @unique
+  endereco    String
+  telefone    String?
+  email       String?
+  horarioFuncionamento Json? @map("horario_funcionamento")
+  servicosOferecidos String[] @map("servicos_oferecidos")
+  aceitaConvenioDibea Boolean @default(false) @map("aceita_convenio_dibea")
+  descontoDibea Decimal? @db.Decimal(5,2) @map("desconto_dibea")
+  latitude    Decimal? @db.Decimal(10,8)
+  longitude   Decimal? @db.Decimal(11,8)
+  municipalityId String @map("municipality_id")
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+  agendamentos Appointment[]
+
+  @@map("clinicas")
+}
+
+model Appointment {
+  id          String   @id @default(uuid())
+  tipo        String
+  localType   String   @default("DIBEA") @map("local_type")
+  clinicaId   String?  @map("clinica_id")
+  dataHora    DateTime @map("data_hora")
+  duracaoMinutos Int @default(30) @map("duracao_minutos")
+  tutorId     String   @map("tutor_id")
+  animalId    String?  @map("animal_id")
+  veterinarioId String? @map("veterinario_id")
+  funcionarioId String? @map("funcionario_id")
+  servico     String?
+  valor       Decimal? @db.Decimal(10,2)
+  status      AppointmentStatus @default(AGENDADO)
+  observacoes String?
+  motivoCancelamento String? @map("motivo_cancelamento")
+  lembreteEnviado Boolean @default(false) @map("lembrete_enviado")
+  municipalityId String @map("municipality_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  clinica     Clinica? @relation(fields: [clinicaId], references: [id])
+  tutor       Tutor    @relation(fields: [tutorId], references: [id])
+  animal      Animal?  @relation(fields: [animalId], references: [id])
+  veterinario User?    @relation("AppointmentVeterinario", fields: [veterinarioId], references: [id])
+  funcionario User?    @relation("AppointmentFuncionario", fields: [funcionarioId], references: [id])
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+  atendimentos Attendance[]
+
+  @@map("agendamentos")
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  animalId    String   @map("animal_id")
+  veterinarioId String @map("veterinario_id")
+  tipo        String
+  dataAtendimento DateTime @map("data_atendimento")
+  pesoAnimal  Decimal? @db.Decimal(5,2) @map("peso_animal")
+  temperatura Decimal? @db.Decimal(4,2)
+  frequenciaCardiaca Int? @map("frequencia_cardiaca")
+  frequenciaRespiratoria Int? @map("frequencia_respiratoria")
+  queixaPrincipal String? @map("queixa_principal")
+  historicoDoencaAtual String? @map("historico_doenca_atual")
+  exameFisico String? @map("exame_fisico")
+  diagnosticoPresuntivo String? @map("diagnostico_presuntivo")
+  diagnosticoDefinitivo String? @map("diagnostico_definitivo")
+  cidVeterinario String? @map("cid_veterinario")
+  conduta     String
+  observacoes String?
+  retornoRecomendado DateTime? @map("retorno_recomendado")
+  status      String   @default("CONCLUIDO")
+  agendamentoId String? @map("agendamento_id")
+  municipalityId String @map("municipality_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  animal      Animal      @relation(fields: [animalId], references: [id])
+  veterinario User        @relation("AttendanceVeterinario", fields: [veterinarioId], references: [id])
+  agendamento Appointment? @relation(fields: [agendamentoId], references: [id])
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+  receitas    Receita[]
+  laudos      Laudo[]
+  produtosUtilizados ProdutoUtilizado[]
+
+  @@map("atendimentos")
+}
+
+model Receita {
+  id          String   @id @default(uuid())
+  atendimentoId String @map("atendimento_id")
+  numeroReceita String @unique @map("numero_receita")
+  dataEmissao DateTime @default(now()) @map("data_emissao")
+  validadeDias Int @default(30) @map("validade_dias")
+  observacoes String?
+  pdfUrl      String?  @map("pdf_url")
+  assinaturaDigital String? @map("assinatura_digital")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  atendimento Attendance @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  medicamentos Medicamento[]
+
+  @@map("receitas")
+}
+
+model Medicamento {
+  id          String   @id @default(uuid())
+  receitaId   String   @map("receita_id")
+  nome        String
+  principioAtivo String? @map("principio_ativo")
+  dosagem     String
+  viaAdministracao String @map("via_administracao")
+  frequencia  String
+  duracaoDias Int     @map("duracao_dias")
+  quantidadeTotal String @map("quantidade_total")
+  instrucoes  String?
+
+  // Relations
+  receita     Receita  @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@map("medicamentos")
+}
+
+model Laudo {
+  id          String   @id @default(uuid())
+  atendimentoId String @map("atendimento_id")
+  tipo        String
+  dataRealizacao DateTime @map("data_realizacao")
+  laboratorio String?
+  resultado   String
+  interpretacao String?
+  arquivos    String[]
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  atendimento Attendance @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+
+  @@map("laudos")
+}
+
+model Produto {
+  id          String   @id @default(uuid())
+  nome        String
+  categoria   String
+  fabricante  String?
+  codigoBarras String? @map("codigo_barras")
+  estoqueAtual Int @default(0) @map("estoque_atual")
+  estoqueMinimo Int @default(10) @map("estoque_minimo")
+  unidade     String
+  valorCusto  Decimal? @db.Decimal(10,2) @map("valor_custo")
+  valorVenda  Decimal? @db.Decimal(10,2) @map("valor_venda")
+  requerReceita Boolean @default(false) @map("requer_receita")
+  controlado  Boolean @default(false)
+  municipalityId String @map("municipality_id")
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+  produtosUtilizados ProdutoUtilizado[]
+
+  @@map("produtos")
+}
+
+model ProdutoUtilizado {
+  id          String   @id @default(uuid())
+  atendimentoId String @map("atendimento_id")
+  produtoId   String   @map("produto_id")
+  quantidade  Decimal  @db.Decimal(10,2)
+  unidade     String
+  lote        String?
+  validade    DateTime?
+  valorUnitario Decimal? @db.Decimal(10,2) @map("valor_unitario")
+  valorTotal  Decimal? @db.Decimal(10,2) @map("valor_total")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  atendimento Attendance @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  produto     Produto    @relation(fields: [produtoId], references: [id])
+
+  @@map("produtos_utilizados")
+}
+
+model Campaign {
+  id          String   @id @default(uuid())
+  nome        String
+  tipo        String
+  descricao   String?
+  dataInicio  DateTime @map("data_inicio")
+  dataFim     DateTime @map("data_fim")
+  local       String
+  endereco    String
+  latitude    Decimal? @db.Decimal(10,8)
+  longitude   Decimal? @db.Decimal(11,8)
+  horariosConfig Json @map("horarios_config")
+  vagasTotal  Int     @map("vagas_total")
+  vagasOcupadas Int @default(0) @map("vagas_ocupadas")
+  listaEspera Boolean @default(false) @map("lista_espera")
+  valor       Decimal? @db.Decimal(10,2)
+  gratuita    Boolean @default(true)
+  requisitos  String[]
+  publicoAlvo String @default("TODOS") @map("publico_alvo")
+  status      CampaignStatus @default(PLANEJADA)
+  municipalityId String @map("municipality_id")
+  createdBy   String  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+  creator     User         @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
+  slots       CampaignSlot[]
+  inscricoes  InscricaoCampanha[]
+
+  @@map("campanhas")
+}
+
+model CampaignSlot {
+  id          String   @id @default(uuid())
+  campaignId  String   @map("campanha_id")
+  dataHora    DateTime @map("data_hora")
+  vagasDisponiveis Int @map("vagas_disponiveis")
+  vagasOcupadas Int @default(0) @map("vagas_ocupadas")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  inscricoes  InscricaoCampanha[]
+
+  @@unique([campaignId, dataHora])
+  @@map("campanha_slots")
+}
+
+model InscricaoCampanha {
+  id          String   @id @default(uuid())
+  campaignId  String   @map("campanha_id")
+  slotId      String   @map("slot_id")
+  tutorId     String   @map("tutor_id")
+  animalId    String?  @map("animal_id")
+  posicaoFila Int?     @map("posicao_fila")
+  status      String   @default("CONFIRMADA")
+  observacoes String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  campaign    Campaign    @relation(fields: [campaignId], references: [id])
+  slot        CampaignSlot @relation(fields: [slotId], references: [id])
+  tutor       Tutor       @relation(fields: [tutorId], references: [id])
+  animal      Animal?     @relation(fields: [animalId], references: [id])
+
+  @@unique([campaignId, tutorId, animalId])
+  @@map("inscricoes_campanha")
+}
+
+model Rga {
+  id          String   @id @default(uuid())
+  numero      String   @unique
+  animalId    String   @map("animal_id")
+  tutorId     String   @map("tutor_id")
+  dataEmissao DateTime @default(now()) @map("data_emissao")
+  dataVencimento DateTime @map("data_vencimento")
+  valorTaxa   Decimal? @db.Decimal(10,2) @map("valor_taxa")
+  pago        Boolean  @default(false)
+  dataPagamento DateTime? @map("data_pagamento")
+  certificadoUrl String? @map("certificado_url")
+  qrCode      String?
+  status      String   @default("ATIVO")
+  municipalityId String @map("municipality_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  animal      Animal      @relation(fields: [animalId], references: [id])
+  tutor       Tutor       @relation(fields: [tutorId], references: [id])
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+
+  @@map("rgas")
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  protocolo   String   @unique
+  tipo        String
+  descricao   String
+  localizacao String
+  latitude    Decimal? @db.Decimal(10,8)
+  longitude   Decimal? @db.Decimal(11,8)
+  denuncianteNome String? @map("denunciante_nome")
+  denuncianteTelefone String? @map("denunciante_telefone")
+  denuncianteEmail String? @map("denunciante_email")
+  fotos       String[]
+  status      ComplaintStatus @default(ABERTA)
+  prioridade  String   @default("MEDIA")
+  responsavelId String? @map("responsavel_id")
+  dataAtribuicao DateTime? @map("data_atribuicao")
+  resolucao   String?
+  dataResolucao DateTime? @map("data_resolucao")
+  municipalityId String @map("municipality_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  responsavel User?       @relation("ComplaintResponsavel", fields: [responsavelId], references: [id])
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+
+  @@map("denuncias")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  phone       String?
+  email       String?
+  titulo      String
+  conteudo    String
+  tipo        NotificationType
+  categoria   String
+  prioridade  NotificationPriority @default(MEDIA)
+  enviarEm    DateTime? @map("enviar_em")
+  enviada     Boolean  @default(false)
+  dataEnvio   DateTime? @map("data_envio")
+  visualizada Boolean  @default(false)
+  dataVisualizacao DateTime? @map("data_visualizacao")
+  clicada     Boolean  @default(false)
+  dataClique  DateTime? @map("data_clique")
+  relacionadoTipo String? @map("relacionado_tipo")
+  relacionadoId String? @map("relacionado_id")
+  tentativasEnvio Int @default(0) @map("tentativas_envio")
+  erro        String?
+  providerMessageId String? @map("provider_message_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@map("notificacoes")
+}
+
+model PreferenciaNotificacao {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  categoria   String
+  emailEnabled Boolean @default(true) @map("email_enabled")
+  smsEnabled  Boolean @default(false) @map("sms_enabled")
+  whatsappEnabled Boolean @default(true) @map("whatsapp_enabled")
+  pushEnabled Boolean @default(true) @map("push_enabled")
+  horarioPreferidoInicio String? @map("horario_preferido_inicio")
+  horarioPreferidoFim String? @map("horario_preferido_fim")
+  diasSemanaPreferidos Int[] @default([1,2,3,4,5]) @map("dias_semana_preferidos")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoria])
+  @@map("preferencias_notificacao")
+}
+
+model ConversaWhatsapp {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  numeroTelefone String @map("numero_telefone")
+  nomeContato String? @map("nome_contato")
+  whatsappId  String? @map("whatsapp_id")
+  contexto    Json     @default("{}")
+  status      String   @default("ATIVA")
+  funcionarioId String? @map("funcionario_id")
+  transferidaEm DateTime? @map("transferida_em")
+  ultimaMensagemEm DateTime @default(now()) @map("ultima_mensagem_em")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+  funcionario User?    @relation("ConversaFuncionario", fields: [funcionarioId], references: [id])
+  mensagens   MensagemWhatsapp[]
+
+  @@unique([numeroTelefone])
+  @@map("conversas_whatsapp")
+}
+
+model MensagemWhatsapp {
+  id          String   @id @default(uuid())
+  conversaId  String   @map("conversa_id")
+  tipo        String
+  conteudo    String?
+  urlMidia    String?  @map("url_midia")
+  origem      String
+  senderId    String?  @map("sender_id")
+  lida        Boolean  @default(false)
+  dataLeitura DateTime? @map("data_leitura")
+  whatsappMessageId String? @map("whatsapp_message_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversa    ConversaWhatsapp @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  sender      User?            @relation(fields: [senderId], references: [id])
+
+  @@map("mensagens_whatsapp")
+}
+
+model LogAuditoria {
+  id          String   @id @default(uuid())
+  tabela      String
+  operacao    String
+  registroId  String? @map("registro_id")
+  userId      String? @map("user_id")
+  userRole    UserRole? @map("user_role")
+  dadosAnteriores Json? @map("dados_anteriores")
+  dadosNovos  Json?   @map("dados_novos")
+  ipAddress   String? @map("ip_address")
+  userAgent   String? @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("logs_auditoria")
+}
+
+// =====================================================
+// LEGACY MODELS (for compatibility)
+// =====================================================
 
 model AgentInteraction {
   id               String    @id @default(uuid())
@@ -132,61 +758,20 @@ model SystemAnalytics {
   @@map("system_analytics")
 }
 
-model Notification {
-  id          String   @id @default(uuid())
-  title       String
-  message     String
-  type        String   // ADOPTION, TASK, SYSTEM, ALERT, INFO
-  category    String   // ADOCAO, DENUNCIA, CAMPANHA, SISTEMA, VETERINARIO
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  status      String   @default("UNREAD") // UNREAD, READ, ARCHIVED
-
-  // Relacionamentos opcionais
-  userId      String?  @map("user_id")
-  animalId    String?  @map("animal_id")
-  adoptionId  String?  @map("adoption_id")
-  taskId      String?  @map("task_id")
-
-  // Metadados para ações
-  actionType  String?  @map("action_type") // APPROVE, REJECT, VIEW, REDIRECT, COMPLETE
-  actionUrl   String?  @map("action_url")
-  actionData  String?  @map("action_data") // JSON string
-
-  // Timestamps
-  readAt      DateTime? @map("read_at")
-  expiresAt   DateTime? @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  user        User?     @relation(fields: [userId], references: [id])
-  animal      Animal?   @relation(fields: [animalId], references: [id])
-  adoption    Adoption? @relation(fields: [adoptionId], references: [id])
-  task        Task?     @relation(fields: [taskId], references: [id])
-
-  @@map("notifications")
-}
-
 model Task {
   id          String   @id @default(uuid())
   title       String
   description String
-  type        String   // ADOPTION_REVIEW, DOCUMENT_VERIFICATION, ANIMAL_UPDATE, SYSTEM_MAINTENANCE
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-
-  // Relacionamentos
+  type        String
+  status      String   @default("PENDING")
+  priority    String   @default("MEDIUM")
   createdById String   @map("created_by_id")
   assignedToId String? @map("assigned_to_id")
   animalId    String?  @map("animal_id")
   adoptionId  String?  @map("adoption_id")
-
-  // Metadados
-  metadata    String?  // JSON string para dados específicos da tarefa
+  metadata    String?
   dueDate     DateTime? @map("due_date")
   completedAt DateTime? @map("completed_at")
-
-  // Timestamps
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -195,7 +780,6 @@ model Task {
   assignedTo  User?     @relation("TaskAssignee", fields: [assignedToId], references: [id])
   animal      Animal?   @relation(fields: [animalId], references: [id])
   adoption    Adoption? @relation(fields: [adoptionId], references: [id])
-  notifications Notification[]
 
   @@map("tasks")
 }
@@ -204,7 +788,7 @@ model ConversationContext {
   id          String   @id @default(uuid())
   sessionId   String   @unique @map("session_id")
   userId      String?  @map("user_id")
-  contextData String   @default("{}") @map("context_data") // JSON string
+  contextData String   @default("{}") @map("context_data")
   lastIntent  String?  @map("last_intent")
   lastAgent   String?  @map("last_agent")
   createdAt   DateTime @default(now()) @map("created_at")

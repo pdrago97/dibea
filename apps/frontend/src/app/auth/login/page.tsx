@@ -23,10 +23,11 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Se já está logado, redireciona
+  // Se já está logado ao carregar a página, redireciona
   useEffect(() => {
     if (isAuthenticated) {
       const redirect = searchParams.get('redirect') || '/dashboard';
+      console.log('Login page: User is authenticated, redirecting to:', redirect);
       router.push(redirect);
     }
   }, [isAuthenticated, router, searchParams]);
@@ -40,10 +41,12 @@ export default function LoginPage() {
       const success = await login(email, password);
       if (!success) {
         setError('Email ou senha incorretos');
+        setIsLoading(false);
       }
+      // Se sucesso, o useEffect vai redirecionar quando isAuthenticated mudar
+      // Não definir isLoading como false aqui para manter o estado de carregamento
     } catch (error) {
       setError('Erro ao fazer login. Tente novamente.');
-    } finally {
       setIsLoading(false);
     }
   };

@@ -1,16 +1,12 @@
-import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
-// Generate JWT Token
-const generateToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
-    expiresIn: '30d',
-  });
-};
+import { Request, Response } from "express";
+import bcrypt from "bcryptjs";
+import { prisma } from "../lib/prisma";
+import {
+  generateToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  JwtPayload,
+} from "../utils/jwt";
 
 // @desc    Login user
 // @route   POST /api/v1/auth/login
@@ -22,59 +18,86 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor, forneça email e senha'
+        message: "Por favor, forneça email e senha",
       });
     }
 
-    // Check for user
+    // Check for user with Prisma
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { municipality: true }
+      include: {
+        municipality: {
+          select: { id: true, name: true, active: true }
+        }
+      }
     });
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciais inválidas'
+        message: "Credenciais inválidas",
       });
     }
 
     // Check if password matches
+    if (!user.passwordHash) {
+      return res.status(401).json({
+        success: false,
+        message: "Credenciais inválidas",
+      });
+    }
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciais inválidas'
+        message: "Credenciais inválidas",
       });
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (!user.active) {
       return res.status(401).json({
         success: false,
-        message: 'Conta desativada. Entre em contato com o administrador.'
+        message: "Conta desativada. Entre em contato com o administrador.",
       });
     }
 
-    const token = generateToken(user.id);
+    // Check if municipality is active
+    if (user.municipality && !user.municipality.active) {
+      return res.status(401).json({
+        success: false,
+        message: "Município desativado. Entre em contato com o administrador.",
+      });
+    }
+
+    // Generate JWT with complete payload
+    const tokenPayload: JwtPayload = {
+      userId: user.id,
+      email: user.email || "",
+      role: user.role,
+      municipalityId: user.municipalityId || "",
+    };
+
+    const token = generateToken(tokenPayload);
+    const refreshToken = generateRefreshToken(user.id);
 
     res.status(200).json({
       success: true,
       token,
+      refreshToken,
       user: {
         id: user.id,
-        name: user.name,
         email: user.email,
         role: user.role,
-        municipality: user.municipality
-      }
+        municipality: user.municipality,
+      },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };
@@ -91,23 +114,23 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       phone,
       zipCode,
       address,
-      role = 'CIDADAO',
-      municipalityId
+      role = "CIDADAO",
+      municipalityId,
     } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Por favor, forneça nome, email e senha'
+        message: "Por favor, forneça nome, email e senha",
       });
     }
 
     // For CIDADAO registration, require additional fields
-    if (role === 'CIDADAO') {
+    if (role === "CIDADAO") {
       if (!phone) {
         return res.status(400).json({
           success: false,
-          message: 'Telefone é obrigatório para cidadãos'
+          message: "Telefone é obrigatório para cidadãos",
         });
       }
     }
@@ -120,7 +143,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: 'Usuário já existe'
+        message: "Usuário já existe",
       });
     }
 
@@ -128,51 +151,76 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Determine municipality (for now, use default)
-    const defaultMunicipalityId = municipalityId || '1';
+    // Validate municipality if provided
+    if (municipalityId) {
+      const municipality = await prisma.municipality.findUnique({
+        where: { id: municipalityId }
+      });
 
-    // Create user
+      if (!municipality) {
+        return res.status(400).json({
+          success: false,
+          message: "Município não encontrado"
+        });
+      }
+    }
+
+    // Create user with Prisma
     const user = await prisma.user.create({
       data: {
-        name,
         email,
+        phone,
         passwordHash: hashedPassword,
         role,
-        municipalityId: defaultMunicipalityId,
-        isActive: true
+        municipalityId,
+        active: true,
       },
-      include: { municipality: true }
+      include: {
+        municipality: {
+          select: { id: true, name: true }
+        }
+      }
     });
 
     // If it's a CIDADAO and we have address info, we could create a tutor record
     // This would be done in a separate step or service
-    if (role === 'CIDADAO' && zipCode) {
+    if (role === "CIDADAO" && zipCode) {
       // TODO: Create tutor record with address information
       // This would be handled by the tutor agent when the user wants to adopt
     }
 
-    const token = generateToken(user.id);
+    // Generate JWT with complete payload
+    const tokenPayload: JwtPayload = {
+      userId: user.id,
+      email: user.email || "",
+      role: user.role,
+      municipalityId: user.municipalityId || "",
+    };
+
+    const token = generateToken(tokenPayload);
+    const refreshToken = generateRefreshToken(user.id);
 
     res.status(201).json({
       success: true,
       token,
+      refreshToken,
       user: {
         id: user.id,
-        name: user.name,
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
-        municipality: user.municipality
+        municipality: user.municipality,
       },
-      message: role === 'CIDADAO'
-        ? 'Conta criada com sucesso! Agora você pode explorar animais para adoção.'
-        : 'Usuário criado com sucesso!'
+      message:
+        role === "CIDADAO"
+          ? "Conta criada com sucesso! Agora você pode explorar animais para adoção."
+          : "Usuário criado com sucesso!",
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };
@@ -182,15 +230,28 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 // @access  Private
 export const getMe = async (req: Request, res: Response): Promise<any> => {
   try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Não autenticado",
+      });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: (req as any).user.id },
-      include: { municipality: true }
+      where: { id: userId },
+      include: {
+        municipality: {
+          select: { id: true, name: true }
+        }
+      }
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Usuário não encontrado'
+        message: "Usuário não encontrado",
       });
     }
 
@@ -198,17 +259,17 @@ export const getMe = async (req: Request, res: Response): Promise<any> => {
       success: true,
       user: {
         id: user.id,
-        name: user.name,
         email: user.email,
         role: user.role,
-        municipality: user.municipality
-      }
+        municipality: user.municipality,
+      },
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in getMe:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro ao buscar usuário",
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -216,48 +277,66 @@ export const getMe = async (req: Request, res: Response): Promise<any> => {
 // @desc    Refresh access token
 // @route   POST /api/v1/auth/refresh
 // @access  Public
-export const refreshToken = async (req: Request, res: Response): Promise<any> => {
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
   try {
-    const { token } = req.body;
+    const { refreshToken: token } = req.body;
 
     if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Token é obrigatório'
+        message: "Refresh token é obrigatório",
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
+    const decoded = verifyRefreshToken(token);
+
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      include: { municipality: true }
+      where: { id: decoded.userId },
+      include: {
+        municipality: {
+          select: { id: true, name: true, active: true }
+        }
+      }
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.active) {
       return res.status(401).json({
         success: false,
-        message: 'Token inválido'
+        message: "Token inválido ou usuário inativo",
       });
     }
 
-    const newToken = generateToken(user.id);
+    // Generate new tokens with complete payload
+    const tokenPayload: JwtPayload = {
+      userId: user.id,
+      email: user.email || "",
+      role: user.role,
+      municipalityId: user.municipalityId || "",
+    };
+
+    const newToken = generateToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(user.id);
 
     res.status(200).json({
       success: true,
       token: newToken,
+      refreshToken: newRefreshToken,
       user: {
         id: user.id,
-        name: user.name,
         email: user.email,
         role: user.role,
-        municipality: user.municipality
-      }
+        municipality: user.municipality,
+      },
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in refreshToken:', error);
     res.status(401).json({
       success: false,
-      message: 'Token inválido'
+      message: "Token inválido",
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
@@ -268,6 +347,6 @@ export const refreshToken = async (req: Request, res: Response): Promise<any> =>
 export const logout = async (req: Request, res: Response): Promise<any> => {
   res.status(200).json({
     success: true,
-    message: 'Logout realizado com sucesso'
+    message: "Logout realizado com sucesso",
   });
 };

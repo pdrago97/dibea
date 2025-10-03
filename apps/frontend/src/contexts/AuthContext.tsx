@@ -124,16 +124,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (userData && password === expectedPassword) {
         const token = `mock-token-${Date.now()}`;
+
+        console.log('AuthContext: Login successful for user:', userData.email, 'role:', userData.role);
+
+        // Salvar token em cookie PRIMEIRO para o middleware
+        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+
+        // Depois salvar no localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
 
-        // Salvar token em cookie para o middleware
-        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
-
+        // Atualizar estado
         setUser(userData);
 
-        // Redirecionar baseado no role
-        redirectBasedOnRole(userData.role);
+        console.log('AuthContext: User state updated, isAuthenticated should now be true');
+
+        // Aguardar um pouco para garantir que o cookie e estado foram atualizados
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // NÃO redirecionar aqui - deixar o componente de login lidar com isso
+        // para evitar conflitos com useEffect
         return true;
       }
 
