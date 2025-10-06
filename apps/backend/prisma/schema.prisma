@@ -92,6 +92,30 @@ enum NotificationPriority {
   URGENTE
 }
 
+enum ElevationRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  NEEDS_MORE_INFO
+  CANCELLED
+}
+
+enum ResidenceType {
+  CASA_PROPRIA
+  CASA_ALUGADA
+  APARTAMENTO_PROPRIO
+  APARTAMENTO_ALUGADO
+  FAMILIA
+}
+
+enum DocumentValidationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REPLACEMENT
+}
+
 // =====================================================
 // MODELS
 // =====================================================
@@ -157,6 +181,12 @@ model User {
   tasksCreated  Task[] @relation("TaskCreator")
   tasksAssigned Task[] @relation("TaskAssignee")
   conversationContexts ConversationContext[]
+  elevationRequests UserElevationRequest[] @relation("UserElevationRequests")
+  elevationReviews UserElevationRequest[] @relation("ElevationReviewedBy")
+  adoptionApplications AdoptionApplication[] @relation("AdoptionApplicationApplicant")
+  adoptionReviews AdoptionApplication[] @relation("AdoptionApplicationReviewedBy")
+  adoptionHomeVisits AdoptionApplication[] @relation("AdoptionApplicationHomeVisit")
+  documentValidations DocumentValidation[] @relation("DocumentValidatedBy")
 
   @@map("users")
 }
@@ -242,6 +272,7 @@ model Animal {
   campaignRegistrations InscricaoCampanha[]
   rgas          Rga[]
   tasks         Task[]
+  adoptionApplications AdoptionApplication[] @relation("AdoptionApplicationAnimal")
 
   @@map("animais")
 }
@@ -798,4 +829,150 @@ model ConversationContext {
   user        User?    @relation(fields: [userId], references: [id])
 
   @@map("conversation_contexts")
+}
+// =====================================================
+// USER ELEVATION AND APPROVAL SYSTEM
+// =====================================================
+
+model UserElevationRequest {
+  id            String                   @id @default(uuid())
+  userId        String                   @map("user_id")
+  
+  // Elevation details
+  fromRole      String                   @map("from_role")
+  toRole        String                   @default("TUTOR") @map("to_role")
+  status        ElevationRequestStatus   @default(PENDING)
+  
+  // User-provided information
+  residenceType ResidenceType?           @map("residence_type")
+  hasYard       Boolean                  @default(false) @map("has_yard")
+  yardSize      String?                  @map("yard_size")
+  householdMembers Int                   @default(1) @map("household_members")
+  hasChildren   Boolean                  @default(false) @map("has_children")
+  childrenAges  Int[]                    @map("children_ages")
+  hasOtherPets  Boolean                  @default(false) @map("has_other_pets")
+  otherPetsDescription String?           @map("other_pets_description")
+  monthlyIncome Decimal?                 @map("monthly_income") @db.Decimal(10, 2)
+  workSchedule  String?                  @map("work_schedule")
+  reasonForAdoption String?              @map("reason_for_adoption")
+  
+  // Documents (Supabase Storage URLs)
+  documents     Json                     @default("{}") @db.JsonB
+  
+  // Admin review
+  reviewedById  String?                  @map("reviewed_by")
+  reviewedAt    DateTime?                @map("reviewed_at")
+  reviewNotes   String?                  @map("review_notes")
+  documentRatings Json                   @default("{}") @map("document_ratings") @db.JsonB
+  rejectionReason String?                @map("rejection_reason")
+  rejectionCategory String?              @map("rejection_category")
+  
+  // Timestamps
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  
+  // Relations
+  user          User                     @relation("UserElevationRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy    User?                    @relation("ElevationReviewedBy", fields: [reviewedById], references: [id])
+  
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedById])
+  @@index([createdAt(sort: Desc)])
+  @@map("user_elevation_requests")
+}
+
+model AdoptionApplication {
+  id                      String         @id @default(uuid())
+  animalId                String         @map("animal_id")
+  applicantId             String         @map("applicant_id")
+  
+  // Status
+  status                  AdoptionStatus @default(SOLICITADA)
+  
+  // Application details
+  reasonForAdoption       String         @map("reason_for_adoption")
+  previousPetExperience   String?        @map("previous_pet_experience")
+  dailyRoutine            String?        @map("daily_routine")
+  timeAvailable           String?        @map("time_available")
+  vacationPlan            String?        @map("vacation_plan")
+  emergencyPlan           String?        @map("emergency_plan")
+  veterinaryBudget        Decimal?       @map("veterinary_budget") @db.Decimal(10, 2)
+  
+  // Additional documents
+  additionalDocuments     Json           @default("{}") @map("additional_documents") @db.JsonB
+  
+  // Home visit
+  homeVisitRequired       Boolean        @default(true) @map("home_visit_required")
+  homeVisitScheduledAt    DateTime?      @map("home_visit_scheduled_at")
+  homeVisitCompletedAt    DateTime?      @map("home_visit_completed_at")
+  homeVisitApproved       Boolean?       @map("home_visit_approved")
+  homeVisitNotes          String?        @map("home_visit_notes")
+  homeVisitConductedById  String?        @map("home_visit_conducted_by")
+  
+  // Admin decision
+  reviewedById            String?        @map("reviewed_by")
+  reviewedAt              DateTime?      @map("reviewed_at")
+  approvalNotes           String?        @map("approval_notes")
+  rejectionReason         String?        @map("rejection_reason")
+  
+  // Terms acceptance
+  termsAccepted           Boolean        @default(false) @map("terms_accepted")
+  termsAcceptedAt         DateTime?      @map("terms_accepted_at")
+  termsIp                 String?        @map("terms_ip")
+  
+  // Timestamps
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  animal                  Animal         @relation("AdoptionApplicationAnimal", fields: [animalId], references: [id], onDelete: Cascade)
+  applicant               User           @relation("AdoptionApplicationApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  reviewedBy              User?          @relation("AdoptionApplicationReviewedBy", fields: [reviewedById], references: [id])
+  homeVisitConductedBy    User?          @relation("AdoptionApplicationHomeVisit", fields: [homeVisitConductedById], references: [id])
+  
+  @@index([animalId])
+  @@index([applicantId])
+  @@index([status])
+  @@index([reviewedById])
+  @@index([createdAt(sort: Desc)])
+  @@map("adoption_applications")
+}
+
+model DocumentValidation {
+  id              String                      @id @default(uuid())
+  
+  // Source reference
+  sourceType      String                      @map("source_type")
+  sourceId        String                      @map("source_id")
+  
+  // Document info
+  documentType    String                      @map("document_type")
+  documentUrl     String                      @map("document_url")
+  documentName    String?                     @map("document_name")
+  fileSize        BigInt?                     @map("file_size")
+  mimeType        String?                     @map("mime_type")
+  
+  // Validation
+  status          DocumentValidationStatus    @default(PENDING)
+  validatedById   String?                     @map("validated_by")
+  validatedAt     DateTime?                   @map("validated_at")
+  validationNotes String?                     @map("validation_notes")
+  rating          Int?                        @db.SmallInt
+  
+  // Metadata
+  metadata        Json                        @default("{}") @db.JsonB
+  
+  // Timestamps
+  createdAt       DateTime                    @default(now()) @map("created_at")
+  updatedAt       DateTime                    @updatedAt @map("updated_at")
+  
+  // Relations
+  validatedBy     User?                       @relation("DocumentValidatedBy", fields: [validatedById], references: [id])
+  
+  @@index([sourceType, sourceId])
+  @@index([status])
+  @@index([validatedById])
+  @@index([createdAt(sort: Desc)])
+  @@map("document_validations")
 }
