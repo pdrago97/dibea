@@ -26,9 +26,14 @@ export default function LoginPage() {
   // Se já está logado ao carregar a página, redireciona
   useEffect(() => {
     if (isAuthenticated) {
-      const redirect = searchParams.get('redirect') || '/dashboard';
-      console.log('Login page: User is authenticated, redirecting to:', redirect);
-      router.push(redirect);
+      // Aguarda um frame para garantir que o user está completamente carregado
+      const timer = setTimeout(() => {
+        const redirect = searchParams.get('redirect') || '/dashboard';
+        console.log('Login page: User is authenticated, redirecting to:', redirect);
+        router.push(redirect);
+      }, 100); // Pequeno delay para garantir sincronização
+      
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, router, searchParams]);
 

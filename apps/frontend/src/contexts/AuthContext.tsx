@@ -139,8 +139,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('AuthContext: User state updated, isAuthenticated should now be true');
 
-        // Aguardar um pouco para garantir que o cookie e estado foram atualizados
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Aguardar um pouco mais para garantir que o estado seja propagado
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         // NÃO redirecionar aqui - deixar o componente de login lidar com isso
         // para evitar conflitos com useEffect
@@ -261,7 +261,10 @@ export function useRequireAuth(requiredRoles?: UserRole | UserRole[]) {
 
   useEffect(() => {
     // Wait for auth to finish loading
-    if (isLoading) return;
+    if (isLoading) {
+      console.log('[useRequireAuth] Still loading, waiting...');
+      return;
+    }
 
     // Not logged in
     if (!user) {
@@ -272,17 +275,24 @@ export function useRequireAuth(requiredRoles?: UserRole | UserRole[]) {
 
     // Check role if required
     if (requiredRoles) {
-      const authorized = hasRole(requiredRoles);
-      console.log('[useRequireAuth] User role:', user.role, 'Required:', requiredRoles, 'Authorized:', authorized);
-      
-      if (!authorized) {
-        console.log('[useRequireAuth] User not authorized, redirecting to unauthorized');
-        router.push('/unauthorized');
-        return;
-      }
+      // Add small delay to ensure user is fully loaded
+      const timer = setTimeout(() => {
+        const authorized = hasRole(requiredRoles);
+        console.log('[useRequireAuth] User role:', user.role, 'Required:', requiredRoles, 'Authorized:', authorized);
+        
+        if (!authorized) {
+          console.log('[useRequireAuth] User not authorized, redirecting to unauthorized');
+          router.push('/unauthorized');
+          return;
+        }
+        
+        console.log('[useRequireAuth] User authorized:', user.email, 'Role:', user.role);
+      }, 50);
+
+      return () => clearTimeout(timer);
     }
 
-    console.log('[useRequireAuth] User authorized:', user.email, 'Role:', user.role);
+    console.log('[useRequireAuth] User authorized (no role check):', user.email);
   }, [user, isLoading, requiredRoles, hasRole, router]);
 
   return { user, isLoading, isAuthorized: !requiredRoles || (user && hasRole(requiredRoles)) };
