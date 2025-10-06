@@ -268,7 +268,7 @@ export function ChatInterface({
                       })}
                     </span>
 
-                    {message.type === "user" && (
+                    {message.sender === "user" && (
                       <div className="flex items-center space-x-1">
                         {message.status === "sending" && (
                           <Loader2 className="w-3 h-3 animate-spin" />
