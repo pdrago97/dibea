@@ -1,456 +1,417 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
+import { useState, useEffect } from 'react';
+import { useRequireAuth } from '@/contexts/AuthContext';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { 
+  Plus,
+  Check,
+  MessageSquare,
   Users,
   PawPrint,
-  Building,
-  Shield,
-  Settings,
-  BarChart3,
-  UserPlus,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-  Database,
-  Bot,
-  MessageSquare,
   Heart,
-  FileText,
-  Calendar,
-  Activity,
-  Eye,
-  Filter,
-  Download,
+  AlertCircle,
+  TrendingUp,
   RefreshCw,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Monitor,
-  Zap,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { MainNavigation } from "@/components/navigation/MainNavigation";
-import {
-  EntityCard,
-  SectionHeader,
-  StatusBadge,
-} from "@/components/ui/design-system";
-import { AdvancedDashboard } from "@/components/admin/AdvancedDashboard";
-import { UserManagement } from "@/components/admin/UserManagement";
-import { SystemMonitoring } from "@/components/admin/SystemMonitoring";
+  X,
+  FileText,
+  Clock,
+  CheckCircle2,
+  ChevronRight
+} from 'lucide-react';
+import Link from 'next/link';
 
-interface AdminStats {
-  totalUsers: number;
+interface DashboardStats {
   totalAnimals: number;
-  totalMunicipalities: number;
-  pendingApprovals: number;
-  systemHealth: "healthy" | "warning" | "critical";
-  agentInteractions: number;
-  totalAdoptions: number;
-  totalProcedures: number;
-  activeProcesses: number;
-  monthlyGrowth: number;
-  systemUptime: string;
-  activeUsers: number;
-  storageUsed: number;
-  apiCalls: number;
+  pendingAdoptions: number;
+  totalUsers: number;
+  systemAlerts: number;
+  trend: {
+    animals: number;
+    adoptions: number;
+  };
 }
 
-interface PendingApproval {
+interface PendingAction {
   id: string;
-  type: "user" | "animal" | "procedure" | "document";
+  type: 'adoption' | 'animal' | 'document' | 'user';
   title: string;
   description: string;
-  requestedBy: string;
+  priority: 'high' | 'medium' | 'low';
   timestamp: string;
-  priority: "high" | "medium" | "low";
+  link: string;
 }
 
-interface SystemAlert {
+interface Activity {
   id: string;
-  type: "info" | "warning" | "error" | "success";
-  title: string;
+  type: 'animal_added' | 'adoption_approved' | 'user_registered' | 'document_uploaded';
   message: string;
   timestamp: string;
-  action?: string;
+  user?: string;
 }
 
-export default function AdminDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<
-    "dashboard" | "users" | "monitoring"
-  >("dashboard");
-  const [stats, setStats] = useState<AdminStats>({
-    totalUsers: 0,
-    totalAnimals: 0,
-    totalMunicipalities: 0,
-    pendingApprovals: 0,
-    systemHealth: "healthy",
-    agentInteractions: 0,
-    totalAdoptions: 0,
-    totalProcedures: 0,
-    activeProcesses: 0,
-    monthlyGrowth: 0,
-    systemUptime: "99.9%",
-    activeUsers: 0,
-    storageUsed: 0,
-    apiCalls: 0,
-  });
+export default function AdminDashboardFixed() {
+  // Protect route - CRITICAL!
+  useRequireAuth(['ADMIN']);
 
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
-    [],
-  );
-  const [advancedAlerts, setAdvancedAlerts] = useState<SystemAlert[]>([]);
-  const [monitoringAlerts, setMonitoringAlerts] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [systemMetrics, setSystemMetrics] = useState<any>({});
-  const [services, setServices] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalAnimals: 0,
+    pendingAdoptions: 0,
+    totalUsers: 0,
+    systemAlerts: 0,
+    trend: { animals: 0, adoptions: 0 }
+  });
+  
+  const [pending, setPending] = useState<PendingAction[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadAdminData();
+    loadDashboardData();
   }, []);
 
-  const loadAdminData = async () => {
+  const loadDashboardData = async () => {
     try {
-      // Load user data from localStorage
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
+      setIsLoading(true);
+      setError(null);
 
-      // Fetch real data from APIs
-      await fetchDashboardData();
-    } catch (error) {
-      console.error("Error loading admin data:", error);
+      // Mock data for now - TODO: Replace with real API calls
+      // Simula latência da API
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setStats({
+        totalAnimals: 4,
+        pendingAdoptions: 3,
+        totalUsers: 12,
+        systemAlerts: 1,
+        trend: {
+          animals: 12.5,
+          adoptions: 8.3
+        }
+      });
+
+      setPending([
+        {
+          id: '1',
+          type: 'adoption',
+          title: 'Adoção do Rex',
+          description: 'João Silva aguarda aprovação há 2 dias',
+          priority: 'high',
+          timestamp: '2024-01-15T10:30:00Z',
+          link: '/admin/adoptions/1'
+        },
+        {
+          id: '2',
+          type: 'document',
+          title: 'Documentos pendentes',
+          description: 'Maria Santos enviou 3 documentos para verificação',
+          priority: 'medium',
+          timestamp: '2024-01-15T14:20:00Z',
+          link: '/admin/documents/pending'
+        },
+        {
+          id: '3',
+          type: 'user',
+          title: 'Novo funcionário',
+          description: 'Carlos Oliveira solicitou conta de funcionário',
+          priority: 'low',
+          timestamp: '2024-01-14T16:45:00Z',
+          link: '/admin/users/pending'
+        }
+      ]);
+
+      setActivities([
+        {
+          id: '1',
+          type: 'animal_added',
+          message: 'Novo animal cadastrado: Luna (Cão)',
+          timestamp: '15 min atrás',
+          user: 'Ana Silva'
+        },
+        {
+          id: '2',
+          type: 'adoption_approved',
+          message: 'Adoção do Milo aprovada',
+          timestamp: '1h atrás',
+          user: 'Você'
+        },
+        {
+          id: '3',
+          type: 'user_registered',
+          message: 'Novo cidadão: Pedro Santos',
+          timestamp: '2h atrás'
+        },
+        {
+          id: '4',
+          type: 'document_uploaded',
+          message: 'Documentos enviados para verificação',
+          timestamp: '3h atrás',
+          user: 'Maria Costa'
+        }
+      ]);
+
+    } catch (err: any) {
+      setError(err.message || 'Erro ao carregar dashboard');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchDashboardData = async () => {
-    try {
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("dibea_token");
+  const getPriorityColor = (priority: string) => {
+    const colors = {
+      high: 'bg-red-50 border-red-200 text-red-700',
+      medium: 'bg-amber-50 border-amber-200 text-amber-700',
+      low: 'bg-blue-50 border-blue-200 text-blue-700'
+    };
+    return colors[priority as keyof typeof colors] || colors.low;
+  };
 
-      console.log("Token encontrado:", token ? "Sim" : "Não");
-
-      if (!token) {
-        console.error("Nenhum token encontrado");
-        setStats({
-          totalUsers: 0,
-          totalAnimals: 0,
-          totalMunicipalities: 1,
-          pendingApprovals: 0,
-          systemHealth: "critical",
-          agentInteractions: 0,
-          totalAdoptions: 0,
-          totalProcedures: 0,
-          activeProcesses: 0,
-          monthlyGrowth: 0,
-          systemUptime: "0%",
-          activeUsers: 0,
-          storageUsed: 0,
-          apiCalls: 0,
-        });
-        return;
-      }
-
-      // Fetch dashboard stats directly
-      console.log("Fazendo requisição para dashboard stats...");
-      const statsResponse = await fetch(
-        "http://localhost:3000/api/v1/admin/dashboard/stats",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        console.log("Dados recebidos do dashboard:", statsData);
-        setStats({
-          totalUsers: statsData.totalUsers || 0,
-          totalAnimals: statsData.totalAnimals || 0,
-          totalMunicipalities: statsData.totalMunicipalities || 1,
-          pendingApprovals: 0,
-          systemHealth: "healthy",
-          agentInteractions: statsData.totalInteractions || 0,
-          totalAdoptions: statsData.totalAdoptions || 0,
-          totalProcedures: statsData.totalProcedures || 0,
-          activeProcesses: statsData.activeProcesses || 0,
-          monthlyGrowth: statsData.monthlyGrowth || 0,
-          systemUptime: "99.9%",
-          activeUsers: statsData.activeUsers || 0,
-          storageUsed: 67,
-          apiCalls: statsData.apiCalls || 0,
-        });
-        return;
-      } else {
-        console.error(
-          "Erro na resposta do dashboard:",
-          statsResponse.status,
-          statsResponse.statusText,
-        );
-      }
-
-      // Fallback: Fetch individual data if stats endpoint fails
-      const animalsResponse = await fetch(
-        "http://localhost:3000/api/v1/animals?limit=100",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      let totalAnimals = 0;
-      if (animalsResponse.ok) {
-        const animalsData = await animalsResponse.json();
-        totalAnimals = animalsData.data?.length || 0;
-      }
-
-      // Fetch users data
-      const usersResponse = await fetch(
-        "http://localhost:3000/api/v1/admin/users",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      let totalUsers = 0;
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        totalUsers = usersData.users?.length || 0;
-      }
-
-      // Fetch agent metrics
-      const agentResponse = await fetch(
-        "http://localhost:3000/api/v1/agents/metrics",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      let agentInteractions = 0;
-      if (agentResponse.ok) {
-        const agentData = await agentResponse.json();
-        agentInteractions = agentData.totalInteractions || 0;
-      }
-
-      setStats({
-        totalUsers,
-        totalAnimals,
-        totalMunicipalities: 1,
-        pendingApprovals: 0,
-        systemHealth: "healthy",
-        agentInteractions,
-        totalAdoptions: 0,
-        totalProcedures: 0,
-        activeProcesses: 0,
-        monthlyGrowth: 12.5,
-        systemUptime: "99.9%",
-        activeUsers: Math.floor(totalUsers * 0.3),
-        storageUsed: 67,
-        apiCalls: agentInteractions * 2,
-      });
-
-      setRecentActivity([
-        {
-          id: "1",
-          type: "user_registration",
-          message: "Novo usuário registrado: Maria Silva",
-          time: "5 min atrás",
-          status: "success",
-        },
-        {
-          id: "2",
-          type: "animal_added",
-          message: "Animal adicionado: Luna (Cão)",
-          time: "15 min atrás",
-          status: "info",
-        },
-        {
-          id: "3",
-          type: "approval_pending",
-          message: "Clínica Veterinária ABC aguarda aprovação",
-          time: "1 hora atrás",
-          status: "warning",
-        },
-        {
-          id: "4",
-          type: "agent_interaction",
-          message: `${agentInteractions} interações com agentes IA hoje`,
-          time: "2 horas atrás",
-          status: "info",
-        },
-      ]);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    }
+  const getPriorityBadge = (priority: string) => {
+    const badges = {
+      high: <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Urgente</Badge>,
+      medium: <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Atenção</Badge>,
+      low: <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Normal</Badge>
+    };
+    return badges[priority as keyof typeof badges] || badges.low;
   };
 
   const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "user_registration":
-        return <UserPlus className="w-4 h-4" />;
-      case "animal_added":
-        return <PawPrint className="w-4 h-4" />;
-      case "approval_pending":
-        return <AlertTriangle className="w-4 h-4" />;
-      case "agent_interaction":
-        return <Bot className="w-4 h-4" />;
-      default:
-        return <Clock className="w-4 h-4" />;
-    }
+    const icons = {
+      animal_added: <PawPrint className="w-4 h-4 text-emerald-600" />,
+      adoption_approved: <Heart className="w-4 h-4 text-blue-600" />,
+      user_registered: <Users className="w-4 h-4 text-gray-600" />,
+      document_uploaded: <FileText className="w-4 h-4 text-amber-600" />
+    };
+    return icons[type as keyof typeof icons] || <Clock className="w-4 h-4" />;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "success":
-        return "bg-green-100 text-green-800";
-      case "warning":
-        return "bg-yellow-100 text-yellow-800";
-      case "error":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-blue-100 text-blue-800";
-    }
-  };
-
-  // User management functions
-  const handleCreateUser = () => {
-    console.log("Create user");
-    // Navigate to user creation page or open modal
-  };
-
-  const handleEditUser = (userId: string) => {
-    console.log("Edit user:", userId);
-    // Navigate to user edit page or open modal
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    console.log("Delete user:", userId);
-    // Show confirmation and delete user
-  };
-
-  const handleToggleUserStatus = (userId: string, status: string) => {
-    console.log("Toggle user status:", userId, status);
-    // Update user status
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
-  };
-
-  if (isLoading) {
+  if (error) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Carregando dashboard...</p>
-          </div>
-        </div>
+      <div className="p-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro ao carregar dashboard</AlertTitle>
+          <AlertDescription className="mt-2">
+            {error}
+          </AlertDescription>
+          <Button 
+            onClick={loadDashboardData} 
+            variant="outline" 
+            size="sm"
+            className="mt-4"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Tentar novamente
+          </Button>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Navigation Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === "dashboard"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 inline mr-2" />
-            Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === "users"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
-          >
-            <Users className="w-4 h-4 inline mr-2" />
-            Usuários
-          </button>
-          <button
-            onClick={() => setActiveTab("monitoring")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === "monitoring"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
-          >
-            <Monitor className="w-4 h-4 inline mr-2" />
-            Monitoramento
-          </button>
-        </nav>
+    <div className="p-8 space-y-6 bg-gray-50 min-h-screen">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-4 gap-4">
+        <Link href="/admin/animals/new">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-emerald-200 hover:border-emerald-400">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Plus className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Novo Animal</p>
+                <p className="text-xs text-gray-500">Cadastrar</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/admin/adoptions/pending">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-red-200 hover:border-red-400">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Check className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Aprovar Adoções</p>
+                <p className="text-xs text-gray-500">{stats.pendingAdoptions} pendentes</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/admin/chat">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-blue-200 hover:border-blue-400">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Responder Chat</p>
+                <p className="text-xs text-gray-500">Central</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/admin/users">
+          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200 hover:border-gray-400">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Users className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Usuários</p>
+                <p className="text-xs text-gray-500">{stats.totalUsers} ativos</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "dashboard" && (
-        <AdvancedDashboard
-          stats={stats}
-          alerts={advancedAlerts}
-          pendingApprovals={pendingApprovals}
-          recentActivity={recentActivity}
-          onRefresh={handleRefresh}
-          isLoading={refreshing}
-        />
+      {/* Hero: Pending Actions */}
+      {pending.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {pending.length} {pending.length === 1 ? 'Ação Pendente' : 'Ações Pendentes'}
+                  </h2>
+                  <p className="text-sm text-gray-600">Requer sua atenção</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline">
+                Ver Todas
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {pending.map((item) => (
+                <Link key={item.id} href={item.link}>
+                  <div className={`
+                    p-4 rounded-lg border-2 cursor-pointer hover:shadow-sm transition-all
+                    ${getPriorityColor(item.priority)}
+                  `}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold">{item.title}</h3>
+                          {getPriorityBadge(item.priority)}
+                        </div>
+                        <p className="text-sm opacity-80">{item.description}</p>
+                        <p className="text-xs opacity-60 mt-2">{item.timestamp}</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 flex-shrink-0 ml-4" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </Card>
       )}
 
-      {activeTab === "users" && (
-        <UserManagement
-          users={users}
-          onCreateUser={handleCreateUser}
-          onEditUser={handleEditUser}
-          onDeleteUser={handleDeleteUser}
-          onToggleStatus={handleToggleUserStatus}
-          isLoading={refreshing}
-        />
-      )}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <PawPrint className="w-5 h-5 text-emerald-600" />
+            </div>
+            {stats.trend.animals > 0 && (
+              <div className="flex items-center gap-1 text-xs text-emerald-600">
+                <TrendingUp className="w-3 h-3" />
+                +{stats.trend.animals}%
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 font-medium">Total de Animais</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-1">{stats.totalAnimals}</p>
+        </Card>
 
-      {activeTab === "monitoring" && (
-        <SystemMonitoring
-          metrics={systemMetrics}
-          services={services}
-          alerts={monitoringAlerts}
-          onRefresh={handleRefresh}
-          isLoading={refreshing}
-        />
-      )}
+        <Card className="p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <Heart className="w-5 h-5 text-red-600" />
+            </div>
+            {stats.trend.adoptions > 0 && (
+              <div className="flex items-center gap-1 text-xs text-red-600">
+                <TrendingUp className="w-3 h-3" />
+                +{stats.trend.adoptions}%
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 font-medium">Adoções Pendentes</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-1">{stats.pendingAdoptions}</p>
+        </Card>
+
+        <Card className="p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 font-medium">Usuários Ativos</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-1">{stats.totalUsers}</p>
+        </Card>
+
+        <Card className="p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 font-medium">Alertas do Sistema</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-1">{stats.systemAlerts}</p>
+        </Card>
+      </div>
+
+      {/* Recent Activity */}
+      <Card>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Atividades Recentes</h2>
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={loadDashboardData}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {isLoading ? (
+              <>
+                <div className="h-12 bg-gray-100 rounded animate-pulse" />
+                <div className="h-12 bg-gray-100 rounded animate-pulse" />
+                <div className="h-12 bg-gray-100 rounded animate-pulse" />
+              </>
+            ) : (
+              activities.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-900">{activity.message}</p>
+                    <p className="text-xs text-gray-500">
+                      {activity.user && `${activity.user} • `}{activity.timestamp}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
