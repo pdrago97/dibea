@@ -166,9 +166,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const hasRole = (roles: UserRole | UserRole[]): boolean => {
-    if (!user) return false;
+    console.log('[hasRole] Called with:', { roles, userRole: user?.role, user: user });
+    if (!user) {
+      console.log('[hasRole] No user, returning false');
+      return false;
+    }
     const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(user.role);
+    const result = roleArray.includes(user.role);
+    console.log('[hasRole] Result:', { roleArray, userRole: user.role, includes: result });
+    return result;
   };
 
   const canAccess = (resource: string): boolean => {
