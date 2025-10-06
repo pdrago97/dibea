@@ -23,13 +23,23 @@ import {
   TrendingUp,
   Building2,
   Shield,
-  Activity
+  Activity,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import MunicipalitySelector from '@/components/shared/MunicipalitySelector';
 import NotificationsPanel from '@/components/shared/NotificationsPanel';
 import CommandPalette from '@/components/shared/CommandPalette';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -39,6 +49,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+  };
 
   // Listen for Cmd+K / Ctrl+K
   useState(() => {
@@ -202,6 +217,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </Link>
           
           <button
+            onClick={handleLogout}
             className={`
               w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-700 hover:bg-red-50 transition-all
               ${!sidebarOpen && 'justify-center'}
@@ -255,20 +271,50 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               }}
             />
 
-            {/* User Menu - Clickable */}
-            <button 
-              onClick={() => window.location.href = '/admin/profile'}
-              className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
-            >
-              <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
-              </div>
-              <div className="text-sm">
-                <p className="font-medium text-gray-900">Pedro Cidadão</p>
-                <p className="text-xs text-gray-500">Administrador</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </button>
+            {/* User Menu Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200">
+                  <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-sm text-left">
+                    <p className="font-medium text-gray-900">{user?.name || 'Admin'}</p>
+                    <p className="text-xs text-gray-500">{user?.role || 'ADMIN'}</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{user?.name}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/dashboard" className="flex items-center cursor-pointer">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/settings" className="flex items-center cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Configurações</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={handleLogout}
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

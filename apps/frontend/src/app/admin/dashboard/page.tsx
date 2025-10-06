@@ -262,47 +262,45 @@ export default function AdminDashboardIntegrated() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-4 gap-4">
-        <Link href="/admin/animals/new">
+        <Link href="/admin/animals">
           <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-emerald-200 hover:border-emerald-400">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 rounded-lg">
                 <Plus className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Novo Animal</p>
-                <p className="text-xs text-gray-500">Cadastrar</p>
+                <p className="text-sm font-semibold text-gray-900">Animais</p>
+                <p className="text-xs text-gray-500">Gerenciar</p>
               </div>
             </div>
           </Card>
         </Link>
 
-        <Link href="/admin/elevations">
+        <Link href="/admin/users">
           <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-amber-200 hover:border-amber-400">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 rounded-lg">
                 <UserPlus className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Elevações</p>
-                <p className="text-xs text-gray-500">{stats.pendingElevations} pendentes</p>
+                <p className="text-sm font-semibold text-gray-900">Usuários</p>
+                <p className="text-xs text-gray-500">Gerenciar</p>
               </div>
             </div>
           </Card>
         </Link>
 
-        <Link href="/admin/adoptions">
-          <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-blue-200 hover:border-blue-400">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Heart className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Adoções</p>
-                <p className="text-xs text-gray-500">{stats.pendingAdoptions} pendentes</p>
-              </div>
+        <Card className="p-4 bg-gray-50 cursor-not-allowed border-gray-200 opacity-60">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Heart className="w-5 h-5 text-blue-600" />
             </div>
-          </Card>
-        </Link>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Adoções</p>
+              <p className="text-xs text-gray-500">Em breve</p>
+            </div>
+          </div>
+        </Card>
 
         <Link href="/admin/chat">
           <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-gray-200 hover:border-gray-400">
@@ -312,7 +310,7 @@ export default function AdminDashboardIntegrated() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Chat</p>
-                <p className="text-xs text-gray-500">Central</p>
+                <p className="text-xs text-gray-500">Agentes IA</p>
               </div>
             </div>
           </Card>
