@@ -72,67 +72,86 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Dashboard', 
       href: '/admin/dashboard', 
       icon: LayoutDashboard,
-      badge: null
+      badge: null,
+      enabled: true
     },
     { 
       name: 'Animais', 
       href: '/admin/animals', 
       icon: PawPrint,
-      badge: '4'
+      badge: '4',
+      enabled: true
     },
     { 
-      name: 'Adoções', 
-      href: '/admin/adoptions', 
-      icon: Heart,
-      badge: '2'
-    },
-    { 
-      name: 'Tutores', 
-      href: '/admin/tutors', 
+      name: 'Usuários', 
+      href: '/admin/users', 
       icon: Users,
-      badge: null
-    },
-    { 
-      name: 'Veterinários', 
-      href: '/admin/veterinarians', 
-      icon: Stethoscope,
-      badge: null
-    },
-    { 
-      name: 'Agendamentos', 
-      href: '/admin/appointments', 
-      icon: Calendar,
-      badge: null
-    },
-    { 
-      name: 'Campanhas', 
-      href: '/admin/campaigns', 
-      icon: TrendingUp,
-      badge: null
-    },
-    { 
-      name: 'Denúncias', 
-      href: '/admin/complaints', 
-      icon: AlertCircle,
-      badge: '3'
+      badge: null,
+      enabled: true
     },
     { 
       name: 'Clínicas', 
       href: '/admin/clinics', 
       icon: Building2,
-      badge: null
+      badge: null,
+      enabled: true
     },
     { 
-      name: 'Chat', 
+      name: 'Chat IA', 
       href: '/admin/chat', 
       icon: MessageSquare,
-      badge: null
+      badge: null,
+      enabled: true
     },
     { 
-      name: 'Relatórios', 
-      href: '/admin/reports', 
+      name: 'Agentes', 
+      href: '/admin/agents', 
+      icon: Shield,
+      badge: null,
+      enabled: true
+    },
+    { 
+      name: 'Analytics', 
+      href: '/admin/analytics', 
       icon: Activity,
-      badge: null
+      badge: null,
+      enabled: true
+    },
+    // Coming soon pages
+    { 
+      name: 'Adoções', 
+      href: '#', 
+      icon: Heart,
+      badge: 'Breve',
+      enabled: false
+    },
+    { 
+      name: 'Veterinários', 
+      href: '#', 
+      icon: Stethoscope,
+      badge: 'Breve',
+      enabled: false
+    },
+    { 
+      name: 'Agendamentos', 
+      href: '#', 
+      icon: Calendar,
+      badge: 'Breve',
+      enabled: false
+    },
+    { 
+      name: 'Campanhas', 
+      href: '#', 
+      icon: TrendingUp,
+      badge: 'Breve',
+      enabled: false
+    },
+    { 
+      name: 'Denúncias', 
+      href: '#', 
+      icon: AlertCircle,
+      badge: 'Breve',
+      enabled: false
     }
   ];
 
@@ -171,6 +190,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {navigation.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
+              const disabled = !item.enabled;
+              
+              if (disabled) {
+                return (
+                  <div
+                    key={item.name}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
+                      text-gray-400 cursor-not-allowed opacity-50 border-l-2 border-transparent
+                      ${!sidebarOpen && 'justify-center'}
+                    `}
+                    title={!sidebarOpen ? `${item.name} (Em breve)` : undefined}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0 text-gray-400" />
+                    {sidebarOpen && (
+                      <>
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge && (
+                          <Badge variant="secondary" className="text-xs px-2">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              }
               
               return (
                 <Link
