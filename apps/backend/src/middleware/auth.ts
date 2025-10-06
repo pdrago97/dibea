@@ -156,21 +156,26 @@ export const optionalAuth = async (
     const token = authHeader.substring(7);
     const decoded = verifyToken(token);
 
-    const { data: user, error } = await supabaseService
-      .getClient()
-      .from("users")
-      .select("*, municipality:municipios(id, nome, ativo)")
-      .eq("id", decoded.userId)
-      .eq("active", true)
-      .single();
+    // Check if user still exists and is active using Prisma
+    const user = await prisma.user.findUnique({
+      where: {
+        id: decoded.userId,
+        active: true
+      },
+      include: {
+        municipality: {
+          select: { id: true, name: true, active: true }
+        }
+      }
+    });
 
-    if (user && (!user.municipality || user.municipality.ativo)) {
+    if (user && (!user.municipality || user.municipality.active)) {
       req.user = {
         ...decoded,
         municipality: user.municipality
           ? {
               id: user.municipality.id,
-              name: user.municipality.nome,
+              name: user.municipality.name,
             }
           : undefined,
       };

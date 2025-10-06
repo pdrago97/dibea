@@ -245,6 +245,7 @@ export const updateAnimal = async (
         microchip: {
           select: { id: true, number: true, status: true }
         }
+      }
     });
 
     res.status(200).json({

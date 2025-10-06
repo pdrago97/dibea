@@ -7,35 +7,33 @@ const prisma = new PrismaClient();
 
 // Validation schemas
 const createNotificationSchema = z.object({
-  title: z.string().min(1, 'Título é obrigatório'),
-  message: z.string().min(1, 'Mensagem é obrigatória'),
-  type: z.enum(['ADOPTION', 'TASK', 'SYSTEM', 'ALERT', 'INFO']),
-  category: z.enum(['ADOCAO', 'DENUNCIA', 'CAMPANHA', 'SISTEMA', 'VETERINARIO']),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  titulo: z.string().min(1, 'Título é obrigatório'),
+  conteudo: z.string().min(1, 'Mensagem é obrigatória'),
+  tipo: z.enum(['EMAIL', 'SMS', 'WHATSAPP', 'PUSH']),
+  categoria: z.string(),
+  prioridade: z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']).default('MEDIA'),
   userId: z.string().optional(),
-  animalId: z.string().optional(),
-  adoptionId: z.string().optional(),
-  taskId: z.string().optional(),
-  actionType: z.enum(['APPROVE', 'REJECT', 'VIEW', 'REDIRECT', 'COMPLETE']).optional(),
-  actionUrl: z.string().optional(),
-  actionData: z.any().optional(),
-  expiresAt: z.string().optional()
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  relacionadoTipo: z.string().optional(),
+  relacionadoId: z.string().optional(),
+  enviarEm: z.string().optional()
 });
 
 const updateNotificationSchema = z.object({
-  status: z.enum(['UNREAD', 'READ', 'ARCHIVED']).optional(),
-  readAt: z.string().optional()
+  visualizada: z.boolean().optional(),
+  dataVisualizacao: z.string().optional()
 });
 
 const notificationFiltersSchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(20),
-  type: z.string().optional(),
-  category: z.string().optional(),
-  priority: z.string().optional(),
-  status: z.string().optional(),
+  tipo: z.string().optional(),
+  categoria: z.string().optional(),
+  prioridade: z.string().optional(),
+  visualizada: z.boolean().optional(),
   userId: z.string().optional(),
-  animalId: z.string().optional(),
+  relacionadoId: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional()
 });
@@ -51,7 +49,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       ...req.query
     });
 
-    const { page, limit, type, category, priority, status, userId, animalId, dateFrom, dateTo } = filters;
+    const { page, limit, tipo, categoria, prioridade, visualizada, userId, relacionadoId, dateFrom, dateTo } = filters;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -59,17 +57,17 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
     
     // If user is not admin, only show their notifications
     const userRole = (req as any).user?.role;
-    if (userRole !== 'ADMIN') {
+    if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
       where.userId = (req as any).user?.id;
     } else if (userId) {
       where.userId = userId;
     }
 
-    if (type) where.type = type;
-    if (category) where.category = category;
-    if (priority) where.priority = priority;
-    if (status) where.status = status;
-    if (animalId) where.animalId = animalId;
+    if (tipo) where.tipo = tipo;
+    if (categoria) where.categoria = categoria;
+    if (prioridade) where.prioridade = prioridade;
+    if (visualizada !== undefined) where.visualizada = visualizada;
+    if (relacionadoId) where.relacionadoId = relacionadoId;
 
     if (dateFrom || dateTo) {
       where.createdAt = {};
@@ -84,21 +82,12 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
         skip,
         take: limit,
         orderBy: [
-          { priority: 'desc' },
+          { prioridade: 'desc' },
           { createdAt: 'desc' }
         ],
         include: {
           user: {
-            select: { id: true, name: true, email: true }
-          },
-          animal: {
-            select: { id: true, name: true, species: true }
-          },
-          adoption: {
-            select: { id: true, status: true }
-          },
-          task: {
-            select: { id: true, title: true, status: true }
+            select: { id: true, email: true, phone: true, role: true }
           }
         }
       }),
@@ -150,16 +139,7 @@ export const getNotification = async (req: Request, res: Response): Promise<void
       where: { id },
       include: {
         user: {
-          select: { id: true, name: true, email: true }
-        },
-        animal: {
-          select: { id: true, name: true, species: true, breed: true }
-        },
-        adoption: {
-          select: { id: true, status: true }
-        },
-        task: {
-          select: { id: true, title: true, status: true, description: true }
+          select: { id: true, email: true, phone: true, role: true }
         }
       }
     });
@@ -204,22 +184,21 @@ export const createNotification = async (req: Request, res: Response): Promise<v
 
     const notification = await prisma.notification.create({
       data: {
-        ...validatedData,
-        actionData: validatedData.actionData ? JSON.stringify(validatedData.actionData) : null,
-        expiresAt: validatedData.expiresAt ? new Date(validatedData.expiresAt) : null
+        titulo: validatedData.titulo,
+        conteudo: validatedData.conteudo,
+        tipo: validatedData.tipo,
+        categoria: validatedData.categoria,
+        prioridade: validatedData.prioridade,
+        userId: validatedData.userId,
+        phone: validatedData.phone,
+        email: validatedData.email,
+        relacionadoTipo: validatedData.relacionadoTipo,
+        relacionadoId: validatedData.relacionadoId,
+        enviarEm: validatedData.enviarEm ? new Date(validatedData.enviarEm) : undefined
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true }
-        },
-        animal: {
-          select: { id: true, name: true, species: true }
-        },
-        adoption: {
-          select: { id: true, status: true }
-        },
-        task: {
-          select: { id: true, title: true, status: true }
+          select: { id: true, email: true, phone: true, role: true }
         }
       }
     });
@@ -281,11 +260,17 @@ export const updateNotification = async (req: Request, res: Response): Promise<v
     }
 
     // Update notification
-    const updateData: any = { ...validatedData };
+    const updateData: any = {};
     
-    // If marking as read, set readAt timestamp
-    if (validatedData.status === 'READ' && !existingNotification.readAt) {
-      updateData.readAt = new Date();
+    // If marking as read, set dataVisualizacao timestamp
+    if (validatedData.visualizada && !existingNotification.dataVisualizacao) {
+      updateData.visualizada = true;
+      updateData.dataVisualizacao = new Date();
+    } else if (validatedData.visualizada !== undefined) {
+      updateData.visualizada = validatedData.visualizada;
+      if (validatedData.dataVisualizacao) {
+        updateData.dataVisualizacao = new Date(validatedData.dataVisualizacao);
+      }
     }
 
     const notification = await prisma.notification.update({
@@ -293,16 +278,7 @@ export const updateNotification = async (req: Request, res: Response): Promise<v
       data: updateData,
       include: {
         user: {
-          select: { id: true, name: true, email: true }
-        },
-        animal: {
-          select: { id: true, name: true, species: true }
-        },
-        adoption: {
-          select: { id: true, status: true }
-        },
-        task: {
-          select: { id: true, title: true, status: true }
+          select: { id: true, email: true, phone: true, role: true }
         }
       }
     });
@@ -342,9 +318,7 @@ export const executeNotificationAction = async (req: Request, res: Response): Pr
     const notification = await prisma.notification.findUnique({
       where: { id },
       include: {
-        task: true,
-        adoption: true,
-        animal: true
+        user: true
       }
     });
 
@@ -367,66 +341,54 @@ export const executeNotificationAction = async (req: Request, res: Response): Pr
 
     let result: any = {};
 
-    // Execute action based on type
-    switch (notification.actionType) {
-      case 'APPROVE':
-        if (notification.adoptionId) {
-          await prisma.adoption.update({
-            where: { id: notification.adoptionId },
-            data: { status: 'APROVADA' }
+    // Execute action based on relacionadoTipo
+    if (notification.relacionadoTipo && notification.relacionadoId) {
+      switch (notification.relacionadoTipo) {
+        case 'ADOPTION':
+        case 'ADOCAO':
+          const adoption = await prisma.adoption.findUnique({
+            where: { id: notification.relacionadoId }
           });
-          result.message = 'Adoção aprovada com sucesso';
-        } else if (notification.taskId) {
-          await prisma.task.update({
-            where: { id: notification.taskId },
-            data: { status: 'COMPLETED', completedAt: new Date() }
-          });
-          result.message = 'Tarefa aprovada e concluída';
-        }
-        break;
+          if (adoption) {
+            result.redirectUrl = `/admin/adoptions/${notification.relacionadoId}`;
+            result.message = 'Redirecionando para adoção';
+          }
+          break;
 
-      case 'REJECT':
-        if (notification.adoptionId) {
-          await prisma.adoption.update({
-            where: { id: notification.adoptionId },
-            data: { status: 'REJEITADA' }
+        case 'TASK':
+        case 'TAREFA':
+          const task = await prisma.task.findUnique({
+            where: { id: notification.relacionadoId }
           });
-          result.message = 'Adoção rejeitada';
-        } else if (notification.taskId) {
-          await prisma.task.update({
-            where: { id: notification.taskId },
-            data: { status: 'CANCELLED' }
+          if (task) {
+            result.redirectUrl = `/tasks/${notification.relacionadoId}`;
+            result.message = 'Redirecionando para tarefa';
+          }
+          break;
+
+        case 'ANIMAL':
+          const animal = await prisma.animal.findUnique({
+            where: { id: notification.relacionadoId }
           });
-          result.message = 'Tarefa cancelada';
-        }
-        break;
+          if (animal) {
+            result.redirectUrl = `/animals/${notification.relacionadoId}`;
+            result.message = 'Redirecionando para animal';
+          }
+          break;
 
-      case 'COMPLETE':
-        if (notification.taskId) {
-          await prisma.task.update({
-            where: { id: notification.taskId },
-            data: { status: 'COMPLETED', completedAt: new Date() }
-          });
-          result.message = 'Tarefa marcada como concluída';
-        }
-        break;
-
-      case 'VIEW':
-      case 'REDIRECT':
-        result.redirectUrl = notification.actionUrl;
-        result.message = 'Redirecionamento preparado';
-        break;
-
-      default:
-        result.message = 'Ação executada';
+        default:
+          result.message = 'Ação executada';
+      }
+    } else {
+      result.message = 'Notificação visualizada';
     }
 
     // Mark notification as read
     await prisma.notification.update({
       where: { id },
       data: {
-        status: 'READ',
-        readAt: new Date()
+        visualizada: true,
+        dataVisualizacao: new Date()
       }
     });
 
@@ -455,7 +417,7 @@ export const getUnreadCount = async (req: Request, res: Response): Promise<void>
     const count = await prisma.notification.count({
       where: {
         userId,
-        status: 'UNREAD'
+        visualizada: false
       }
     });
 
@@ -483,11 +445,11 @@ export const markAllAsRead = async (req: Request, res: Response): Promise<void> 
     await prisma.notification.updateMany({
       where: {
         userId,
-        status: 'UNREAD'
+        visualizada: false
       },
       data: {
-        status: 'READ',
-        readAt: new Date()
+        visualizada: true,
+        dataVisualizacao: new Date()
       }
     });
 
