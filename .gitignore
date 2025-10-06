@@ -225,3 +225,4 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/
+apps/frontend/.env.local

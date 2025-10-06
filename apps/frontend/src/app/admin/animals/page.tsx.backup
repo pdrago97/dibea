@@ -1,0 +1,511 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/lib/supabase';
+import { 
+  PlusCircle, 
+  Search, 
+  Filter,
+  Heart,
+  MapPin,
+  Calendar,
+  Weight,
+  Palette,
+  Info,
+  Edit,
+  Eye,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  RefreshCw
+} from 'lucide-react';
+
+interface Animal {
+  id: string;
+  nome: string;
+  especie: 'CANINO' | 'FELINO' | 'OUTROS';
+  raca: string | null;
+  sexo: 'MACHO' | 'FEMEA';
+  porte: 'PEQUENO' | 'MEDIO' | 'GRANDE';
+  data_nascimento: string | null;
+  peso: number | null;
+  cor: string | null;
+  temperamento: string | null;
+  observacoes: string | null;
+  status: 'DISPONIVEL' | 'ADOTADO' | 'EM_TRATAMENTO' | 'OBITO' | 'PERDIDO';
+  qr_code: string | null;
+  microchip_id: string | null;
+  municipality_id: string;
+  created_at: string;
+  updated_at: string;
+  municipios: {
+    nome: string;
+  };
+  fotos_animal: {
+    id: string;
+    url: string;
+    principal: boolean;
+    ordem: number;
+  }[];
+  adocoes: any[];
+}
+
+export default function AnimalsManagementImproved() {
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [speciesFilter, setSpeciesFilter] = useState<string>('all');
+  const [stats, setStats] = useState({
+    total: 0,
+    disponivel: 0,
+    adotado: 0,
+    tratamento: 0
+  });
+
+  useEffect(() => {
+    fetchAnimals();
+    fetchStats();
+  }, [statusFilter, speciesFilter]);
+
+  const fetchStats = async () => {
+    try {
+      const [
+        { count: total },
+        { count: disponivel },
+        { count: adotado },
+        { count: tratamento }
+      ] = await Promise.all([
+        supabase.from('animais').select('*', { count: 'exact', head: true }),
+        supabase.from('animais').select('*', { count: 'exact', head: true }).eq('status', 'DISPONIVEL'),
+        supabase.from('animais').select('*', { count: 'exact', head: true }).eq('status', 'ADOTADO'),
+        supabase.from('animais').select('*', { count: 'exact', head: true }).eq('status', 'EM_TRATAMENTO')
+      ]);
+
+      setStats({
+        total: total || 0,
+        disponivel: disponivel || 0,
+        adotado: adotado || 0,
+        tratamento: tratamento || 0
+      });
+    } catch (err) {
+      console.error('Erro ao buscar estatísticas:', err);
+    }
+  };
+
+  const fetchAnimals = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      let query = supabase
+        .from('animais')
+        .select(`
+          *,
+          municipios (nome),
+          fotos_animal (id, url, principal, ordem),
+          adocoes (id, status)
+        `)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (statusFilter && statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+      if (speciesFilter && speciesFilter !== 'all') {
+        query = query.eq('especie', speciesFilter);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setAnimals(data || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar animais:', err);
+      setError(err.message || 'Erro ao carregar animais');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DISPONIVEL':
+        return 'bg-green-100 text-green-800';
+      case 'ADOTADO':
+        return 'bg-blue-100 text-blue-800';
+      case 'EM_TRATAMENTO':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'OBITO':
+        return 'bg-red-100 text-red-800';
+      case 'PERDIDO':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'DISPONIVEL':
+        return 'Disponível';
+      case 'ADOTADO':
+        return 'Adotado';
+      case 'EM_TRATAMENTO':
+        return 'Em Tratamento';
+      case 'OBITO':
+        return 'Óbito';
+      case 'PERDIDO':
+        return 'Perdido';
+      default:
+        return status;
+    }
+  };
+
+  const getSpeciesIcon = (especie: string) => {
+    switch (especie) {
+      case 'CANINO':
+        return '🐕';
+      case 'FELINO':
+        return '🐈';
+      default:
+        return '🐾';
+    }
+  };
+
+  const calculateAge = (birthDate?: string | null) => {
+    if (!birthDate) return 'Idade não informada';
+    const birth = new Date(birthDate);
+    const today = new Date();
+    const ageInMonths = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth());
+    
+    if (ageInMonths < 12) {
+      return `${ageInMonths} meses`;
+    } else {
+      const years = Math.floor(ageInMonths / 12);
+      return `${years} ano${years > 1 ? 's' : ''}`;
+    }
+  };
+
+  const getPrimaryPhoto = (animal: Animal) => {
+    const primary = animal.fotos_animal?.find(foto => foto.principal);
+    if (primary) return primary.url;
+    
+    const first = animal.fotos_animal?.[0];
+    if (first) return first.url;
+    
+    // Default placeholder
+    return animal.especie === 'CANINO' 
+      ? 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=300&fit=crop'
+      : 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=300&fit=crop';
+  };
+
+  const filteredAnimals = animals.filter(animal => {
+    const matchesSearch = animal.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (animal.raca?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando animais...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Gestão de Animais</h1>
+          <p className="text-gray-600 mt-1">Gerencie os animais cadastrados no sistema</p>
+        </div>
+        <Button className="bg-blue-600 hover:bg-blue-700">
+          <PlusCircle className="w-5 h-5 mr-2" />
+          Cadastrar Animal
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 font-medium">Total de Animais</p>
+              <p className="text-3xl font-bold text-blue-900 mt-1">{stats.total}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
+              <Heart className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 font-medium">Disponíveis</p>
+              <p className="text-3xl font-bold text-green-900 mt-1">{stats.disponivel}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-purple-600 font-medium">Adotados</p>
+              <p className="text-3xl font-bold text-purple-900 mt-1">{stats.adotado}</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
+              <Heart className="w-6 h-6 text-purple-600 fill-current" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-600 font-medium">Em Tratamento</p>
+              <p className="text-3xl font-bold text-yellow-900 mt-1">{stats.tratamento}</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-200 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-yellow-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-64">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                placeholder="Buscar por nome ou raça..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="DISPONIVEL">Disponível</SelectItem>
+              <SelectItem value="ADOTADO">Adotado</SelectItem>
+              <SelectItem value="EM_TRATAMENTO">Em Tratamento</SelectItem>
+              <SelectItem value="OBITO">Óbito</SelectItem>
+              <SelectItem value="PERDIDO">Perdido</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Filtrar por espécie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as espécies</SelectItem>
+              <SelectItem value="CANINO">Canino 🐕</SelectItem>
+              <SelectItem value="FELINO">Felino 🐈</SelectItem>
+              <SelectItem value="OUTROS">Outros 🐾</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              setSearchTerm('');
+              setStatusFilter('all');
+              setSpeciesFilter('all');
+              fetchAnimals();
+            }}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Limpar Filtros
+          </Button>
+        </div>
+      </Card>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Animals Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredAnimals.map((animal) => (
+          <Card key={animal.id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
+            {/* Image */}
+            <div className="relative h-48 overflow-hidden group">
+              <img 
+                src={getPrimaryPhoto(animal)}
+                alt={animal.nome}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              />
+              <div className="absolute top-3 right-3 flex gap-2">
+                <Badge className={getStatusColor(animal.status)}>
+                  {getStatusText(animal.status)}
+                </Badge>
+              </div>
+              <div className="absolute top-3 left-3">
+                <span className="text-3xl">{getSpeciesIcon(animal.especie)}</span>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {/* Header */}
+              <div className="mb-3">
+                <h3 className="font-bold text-xl text-gray-900 mb-1">{animal.nome}</h3>
+                <p className="text-sm text-gray-600">
+                  {animal.raca || 'SRD'} • {animal.sexo === 'MACHO' ? 'Macho' : 'Fêmea'}
+                </p>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center text-sm text-gray-700">
+                  <Calendar className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="font-medium mr-1">Idade:</span>
+                  {calculateAge(animal.data_nascimento)}
+                </div>
+                
+                <div className="flex items-center text-sm text-gray-700">
+                  <Info className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="font-medium mr-1">Porte:</span>
+                  {animal.porte}
+                </div>
+
+                {animal.peso && (
+                  <div className="flex items-center text-sm text-gray-700">
+                    <Weight className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="font-medium mr-1">Peso:</span>
+                    {animal.peso} kg
+                  </div>
+                )}
+                
+                {animal.cor && (
+                  <div className="flex items-center text-sm text-gray-700">
+                    <Palette className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="font-medium mr-1">Cor:</span>
+                    {animal.cor}
+                  </div>
+                )}
+
+                <div className="flex items-center text-sm text-gray-700">
+                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="font-medium mr-1">Município:</span>
+                  {animal.municipios.nome}
+                </div>
+              </div>
+
+              {/* Temperament/Description */}
+              {animal.temperamento && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600 font-medium mb-1">Temperamento:</p>
+                  <p className="text-sm text-gray-800 line-clamp-2">{animal.temperamento}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    // Navigate to detail page
+                    window.location.href = `/admin/animals/${animal.id}`;
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  Ver
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    // Navigate to edit page
+                    window.location.href = `/admin/animals/${animal.id}/edit`;
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Editar
+                </Button>
+                {animal.status === 'DISPONIVEL' && (
+                  <Button 
+                    size="sm" 
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      // Initiate adoption process
+                      console.log('Iniciar adoção para:', animal.nome);
+                    }}
+                  >
+                    <Heart className="w-4 h-4 mr-1" />
+                    Adotar
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {filteredAnimals.length === 0 && !loading && (
+        <Card className="p-12 text-center">
+          <div className="text-gray-500">
+            <Heart className="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <h3 className="text-xl font-semibold mb-2 text-gray-700">Nenhum animal encontrado</h3>
+            <p className="text-sm mb-6">
+              {searchTerm || statusFilter !== 'all' || speciesFilter !== 'all'
+                ? 'Tente ajustar os filtros de busca'
+                : 'Cadastre o primeiro animal no sistema'
+              }
+            </p>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <PlusCircle className="w-5 h-5 mr-2" />
+              Cadastrar Primeiro Animal
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Footer Stats */}
+      <div className="text-center text-sm text-gray-500">
+        Exibindo {filteredAnimals.length} de {animals.length} animais
+      </div>
+    </div>
+  );
+}
