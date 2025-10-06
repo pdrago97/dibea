@@ -254,18 +254,30 @@ export function useRequireAuth(requiredRoles?: UserRole | UserRole[]) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+    // Wait for auth to finish loading
+    if (isLoading) return;
 
-      if (requiredRoles && !hasRole(requiredRoles)) {
+    // Not logged in
+    if (!user) {
+      console.log('[useRequireAuth] No user found, redirecting to login');
+      router.push('/auth/login');
+      return;
+    }
+
+    // Check role if required
+    if (requiredRoles) {
+      const authorized = hasRole(requiredRoles);
+      console.log('[useRequireAuth] User role:', user.role, 'Required:', requiredRoles, 'Authorized:', authorized);
+      
+      if (!authorized) {
+        console.log('[useRequireAuth] User not authorized, redirecting to unauthorized');
         router.push('/unauthorized');
         return;
       }
     }
+
+    console.log('[useRequireAuth] User authorized:', user.email, 'Role:', user.role);
   }, [user, isLoading, requiredRoles, hasRole, router]);
 
-  return { user, isLoading, isAuthorized: !requiredRoles || hasRole(requiredRoles) };
+  return { user, isLoading, isAuthorized: !requiredRoles || (user && hasRole(requiredRoles)) };
 }
