@@ -256,7 +256,7 @@ export function ChatInterface({
                   <div className="flex items-center justify-between mt-2">
                     <span
                       className={`text-xs ${
-                        message.type === "user"
+                        message.sender === "user"
                           ? "text-blue-100"
                           : "text-gray-500"
                       }`}
