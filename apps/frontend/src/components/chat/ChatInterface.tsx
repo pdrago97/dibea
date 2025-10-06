@@ -251,7 +251,7 @@ export function ChatInterface({
                     </div>
                   )}
 
-                  <p className="text-sm">{message.message}</p>
+                  <p className="text-sm">{message.content}</p>
 
                   <div className="flex items-center justify-between mt-2">
                     <span
