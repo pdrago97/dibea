@@ -239,7 +239,7 @@ export function ChatInterface({
                       : "bg-white border shadow-sm"
                   }`}
                 >
-                  {message.type === "bot" && (
+                  {message.sender === "bot" && (
                     <div className="flex items-center space-x-2 mb-2">
                       {getAgentIcon(message.agent)}
                       <span className="text-xs font-medium text-gray-600">
