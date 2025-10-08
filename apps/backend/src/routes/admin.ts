@@ -1,16 +1,16 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Middleware para verificar se é admin
-const requireAdmin = requireRole(['ADMIN']);
+const requireAdmin = authorize('ADMIN');
 
 // GET /api/v1/admin/users - Listar todos os usuários
-router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/users', authenticate, requireAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -24,6 +24,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
         updatedAt: true,
         municipality: {
           select: {
+            id: true,
             name: true
           }
         }
@@ -40,9 +41,10 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
       phone: user.phone,
       role: user.role,
       status: user.isActive ? 'active' : 'inactive',
+      active: user.isActive,
       createdAt: user.createdAt.toISOString().split('T')[0],
       lastLogin: user.updatedAt.toISOString(),
-      municipality: user.municipality?.name || 'N/A'
+      municipality: user.municipality || null
     }));
 
     res.json({
@@ -60,7 +62,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/v1/admin/users - Criar novo usuário
-router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/users', authenticate, requireAdmin, async (req, res) => {
   try {
     const { name, email, password, phone, role } = req.body;
 
@@ -95,7 +97,7 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
       data: {
         name,
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         phone: phone || null,
         role: role as any,
         isActive: true,
@@ -112,14 +114,14 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
       }
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Usuário criado com sucesso',
       user: newUser
     });
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao criar usuário'
     });
@@ -127,7 +129,7 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PUT /api/v1/admin/users/:id - Atualizar usuário
-router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, phone, role, isActive } = req.body;
@@ -179,14 +181,14 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Usuário atualizado com sucesso',
       user: updatedUser
     });
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao atualizar usuário'
     });
@@ -194,7 +196,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/v1/admin/users/:id - Desativar usuário
-router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/users/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -216,13 +218,13 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) =>
       data: { isActive: false }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Usuário desativado com sucesso'
     });
   } catch (error) {
     console.error('Error deactivating user:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao desativar usuário'
     });
@@ -230,7 +232,7 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // GET /api/v1/admin/stats - Estatísticas do sistema
-router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/stats', authenticate, requireAdmin, async (req, res) => {
   try {
     const [
       totalUsers,
@@ -244,7 +246,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
       prisma.animal.count(),
       prisma.municipality.count(),
       prisma.adoption.count(),
-      prisma.user.count({ where: { is_active: true } }),
+      prisma.user.count({ where: { isActive: true } }),
       prisma.animal.count({ where: { status: 'DISPONIVEL' } })
     ]);
 
@@ -274,7 +276,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // GET /api/v1/admin/activity - Atividade recente
-router.get('/activity', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/activity', authenticate, requireAdmin, async (req, res) => {
   try {
     // Buscar atividades recentes (últimos usuários, animais, etc.)
     const [recentUsers, recentAnimals] = await Promise.all([
@@ -327,6 +329,117 @@ router.get('/activity', authenticateToken, requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar atividades'
+    });
+  }
+});
+
+// GET /api/v1/admin/clinics - Listar todas as clínicas
+router.get('/clinics', authenticate, requireAdmin, async (req, res) => {
+  try {
+    // TODO: Implement when Clinic model is ready in Prisma
+    return res.json({
+      success: true,
+      clinics: []
+    });
+    
+    /* REMOVE MOCK DATA
+    const mockClinics = [
+      {
+        id: '1',
+        name: 'Clínica Veterinária ABC',
+        cnpj: '12.345.678/0001-90',
+        email: 'contato@clinicaabc.com.br',
+        phone: '(11) 3456-7890',
+        address: 'Rua das Flores, 123',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '01234-567',
+        status: 'PENDING',
+        veterinarian: {
+          name: 'Dr. João Silva',
+          crmv: 'SP-12345',
+          email: 'joao@clinicaabc.com.br'
+        },
+        services: ['Consultas', 'Cirurgias', 'Vacinação', 'Exames'],
+        documents: [
+          { id: '1', type: 'CRMV', url: '/docs/crmv.pdf', verified: true },
+          { id: '2', type: 'CNPJ', url: '/docs/cnpj.pdf', verified: true },
+          { id: '3', type: 'Alvará', url: '/docs/alvara.pdf', verified: false }
+        ],
+        requestDate: '2024-01-15T10:00:00Z'
+      },
+      {
+        id: '2',
+        name: 'Pet Care Veterinária',
+        cnpj: '98.765.432/0001-10',
+        email: 'contato@petcare.com.br',
+        phone: '(11) 9876-5432',
+        address: 'Av. Principal, 456',
+        city: 'São Paulo',
+        state: 'SP',
+        zipCode: '09876-543',
+        status: 'APPROVED',
+        veterinarian: {
+          name: 'Dra. Maria Santos',
+          crmv: 'SP-67890',
+          email: 'maria@petcare.com.br'
+        },
+        services: ['Consultas', 'Emergência 24h', 'Internação'],
+        documents: [
+          { id: '4', type: 'CRMV', url: '/docs/crmv2.pdf', verified: true },
+          { id: '5', type: 'CNPJ', url: '/docs/cnpj2.pdf', verified: true }
+        ],
+        requestDate: '2024-01-10T14:30:00Z',
+        reviewDate: '2024-01-12T09:15:00Z',
+        reviewNotes: 'Documentação completa e em ordem. Clínica aprovada.'
+      }
+    ];
+    */
+  } catch (error) {
+    console.error('Error fetching clinics:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar clínicas'
+    });
+  }
+});
+
+// POST /api/v1/admin/clinics/:id/approve - Aprovar clínica
+router.post('/clinics/:id/approve', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    // TODO: Implement clinic approval logic when model is ready
+    res.json({
+      success: true,
+      message: 'Clínica aprovada com sucesso'
+    });
+  } catch (error) {
+    console.error('Error approving clinic:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao aprovar clínica'
+    });
+  }
+});
+
+// POST /api/v1/admin/clinics/:id/reject - Rejeitar clínica
+router.post('/clinics/:id/reject', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    // TODO: Implement clinic rejection logic when model is ready
+    res.json({
+      success: true,
+      message: 'Clínica rejeitada'
+    });
+  } catch (error) {
+    console.error('Error rejecting clinic:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao rejeitar clínica'
     });
   }
 });

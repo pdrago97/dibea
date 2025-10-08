@@ -258,15 +258,14 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
     if (task.assignedToId) {
       await prisma.notification.create({
         data: {
-          title: `Nova tarefa atribuída: ${task.title}`,
-          message: task.description,
-          type: 'TASK',
-          category: 'SISTEMA',
-          priority: task.priority,
+          titulo: `Nova tarefa atribuída: ${task.title}`,
+          conteudo: task.description,
+          tipo: 'PUSH',
+          categoria: 'SISTEMA',
+          prioridade: task.priority,
           userId: task.assignedToId,
-          taskId: task.id,
-          actionType: 'VIEW',
-          actionUrl: `/tasks/${task.id}`
+          relacionadoTipo: 'TASK',
+          relacionadoId: task.id
         }
       });
     }
@@ -385,15 +384,14 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         if (existingTask.createdById !== userId) {
           await prisma.notification.create({
             data: {
-              title: `Tarefa ${message}: ${task.title}`,
-              message: `A tarefa foi ${message} por ${(req as any).user?.name}`,
-              type: 'TASK',
-              category: 'SISTEMA',
-              priority: 'MEDIUM',
+              titulo: `Tarefa ${message}: ${task.title}`,
+              conteudo: `A tarefa foi ${message}`,
+              tipo: 'PUSH',
+              categoria: 'SISTEMA',
+              prioridade: 'MEDIA',
               userId: existingTask.createdById,
-              taskId: task.id,
-              actionType: 'VIEW',
-              actionUrl: `/tasks/${task.id}`
+              relacionadoTipo: 'TASK',
+              relacionadoId: task.id
             }
           });
         }
@@ -402,15 +400,14 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         if (existingTask.assignedToId && existingTask.assignedToId !== userId) {
           await prisma.notification.create({
             data: {
-              title: `Tarefa ${message}: ${task.title}`,
-              message: `A tarefa foi ${message}`,
-              type: 'TASK',
-              category: 'SISTEMA',
-              priority: 'MEDIUM',
+              titulo: `Tarefa ${message}: ${task.title}`,
+              conteudo: `A tarefa foi ${message}`,
+              tipo: 'PUSH',
+              categoria: 'SISTEMA',
+              prioridade: 'MEDIA',
               userId: existingTask.assignedToId,
-              taskId: task.id,
-              actionType: 'VIEW',
-              actionUrl: `/tasks/${task.id}`
+              relacionadoTipo: 'TASK',
+              relacionadoId: task.id
             }
           });
         }

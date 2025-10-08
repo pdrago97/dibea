@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   // Listen for Cmd+K / Ctrl+K
-  useState(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -65,7 +65,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  });
+  }, []);
 
   const navigation = [
     { 

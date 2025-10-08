@@ -197,7 +197,23 @@ supabase db push
 supabase functions deploy
 ```
 
-### **4. Setup N8N**
+### **4. Setup Supabase Remote MCP (AI Integration)**
+
+```bash
+# NEW: Remote MCP server - no installation needed!
+# Just use this URL in your AI client:
+https://mcp.supabase.com/mcp?project=xptonqqagxcpzlgndilj
+
+# For local development:
+supabase start
+# Then use: http://localhost:54321/mcp
+
+# See full guide:
+# docs/SUPABASE_REMOTE_MCP_SETUP.md
+# docs/SUPABASE_MCP_QUICK_REFERENCE.md
+```
+
+### **5. Setup N8N**
 
 ```bash
 # Docker

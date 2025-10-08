@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { 
   Plus,
-  Search, 
+
   Filter,
   Download,
   MoreHorizontal,

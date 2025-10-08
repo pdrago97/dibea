@@ -40,8 +40,7 @@ export const authenticate = async (
     // Check if user still exists and is active using Prisma
     const user = await prisma.user.findUnique({
       where: {
-        id: decoded.userId,
-        active: true
+        id: decoded.userId
       },
       include: {
         municipality: {
@@ -50,7 +49,7 @@ export const authenticate = async (
       }
     });
 
-    if (!user) {
+    if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
         error: "User not found or inactive",
@@ -159,8 +158,7 @@ export const optionalAuth = async (
     // Check if user still exists and is active using Prisma
     const user = await prisma.user.findUnique({
       where: {
-        id: decoded.userId,
-        active: true
+        id: decoded.userId
       },
       include: {
         municipality: {

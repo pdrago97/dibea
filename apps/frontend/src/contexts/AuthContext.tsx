@@ -72,7 +72,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Sistema de autenticação mock para desenvolvimento
+      // Real authentication via API
+      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        console.error('Login failed:', response.statusText);
+        return false;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.token && data.user) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+        return true;
+      }
+
+      return false;
+      
+      /* REMOVED MOCK AUTH
       const mockUsers = {
         'admin@dibea.com': {
           id: '1',
@@ -119,34 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'cidadao@dibea.com': 'cidadao123'
       };
 
-      const userData = mockUsers[email as keyof typeof mockUsers];
-      const expectedPassword = mockPasswords[email as keyof typeof mockPasswords];
-
-      if (userData && password === expectedPassword) {
-        const token = `mock-token-${Date.now()}`;
-
-        console.log('AuthContext: Login successful for user:', userData.email, 'role:', userData.role);
-
-        // Salvar token em cookie PRIMEIRO para o middleware
-        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
-
-        // Depois salvar no localStorage
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-
-        // Atualizar estado
-        setUser(userData);
-
-        console.log('AuthContext: User state updated, isAuthenticated should now be true');
-
-        // Aguardar um pouco mais para garantir que o estado seja propagado
-        await new Promise(resolve => setTimeout(resolve, 150));
-
-        // NÃO redirecionar aqui - deixar o componente de login lidar com isso
-        // para evitar conflitos com useEffect
-        return true;
-      }
-
+      */
       return false;
     } catch (error) {
       console.error('Erro no login:', error);

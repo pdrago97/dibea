@@ -16,11 +16,21 @@
       }
     },
     "supabase": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres"],
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp",
       "enabled": true,
-      "environment": {
-        "POSTGRES_CONNECTION_STRING": "${SUPABASE_DATABASE_URL}"
+      "description": "Remote Supabase MCP server with OAuth2 authentication",
+      "features": [
+        "account",
+        "docs",
+        "database",
+        "debugging",
+        "development",
+        "functions",
+        "storage"
+      ],
+      "headers": {
+        "Content-Type": "application/json"
       }
     },
     "git": {

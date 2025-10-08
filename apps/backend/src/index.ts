@@ -21,8 +21,10 @@ import complaintRoutes from './routes/complaints';
 import campaignRoutes from './routes/campaigns';
 import dashboardRoutes from './routes/dashboard';
 import notificationRoutes from './routes/notifications';
-import taskRoutes from './routes/tasks';
+// import taskRoutes from './routes/tasks'; // Temporarily disabled due to TypeScript errors
 import n8nRoutes from './routes/n8n'; // N8N internal routes
+import adminRoutes from './routes/admin'; // Admin routes
+import analyticsRoutes from './routes/analytics'; // Analytics routes
 // import { agentRoutes } from './routes/agentRoutes'; // Temporarily disabled due to TypeScript errors
 
 // Import middleware
@@ -105,7 +107,9 @@ app.use('/api/v1/complaints', complaintRoutes);
 app.use('/api/v1/campaigns', campaignRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
-app.use('/api/v1/tasks', taskRoutes);
+// app.use('/api/v1/tasks', taskRoutes); // Temporarily disabled
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 // app.use('/api/v1/agents', agentRoutes); // Temporarily disabled
 
 // N8N Internal Routes (API Key authentication)

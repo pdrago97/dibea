@@ -19,7 +19,7 @@ interface User {
   municipality: {
     id: string;
     name: string;
-  };
+  } | null;
 }
 
 export default function UsersManagement() {
@@ -63,7 +63,7 @@ export default function UsersManagement() {
           phone: user.phone,
           active: user.active,
           createdAt: user.createdAt,
-          municipality: user.municipality?.name || 'N/A'
+          municipality: user.municipality
         }));
         setUsers(formattedUsers);
       } else {
@@ -198,9 +198,9 @@ export default function UsersManagement() {
             />
           </div>
           <div>
-            <Label htmlFor="role">Filtrar por role</Label>
+            <Label htmlFor="filter-role">Filtrar por role</Label>
             <select
-              id="role"
+              id="filter-role"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
@@ -301,7 +301,7 @@ export default function UsersManagement() {
                 <p className="text-gray-600">{user.email}</p>
                 {user.phone && <p className="text-gray-500 text-sm">{user.phone}</p>}
                 <p className="text-gray-500 text-sm">
-                  Município: {user.municipality.name} • 
+                  Município: {user.municipality?.name || 'N/A'} •
                   Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                 </p>
               </div>

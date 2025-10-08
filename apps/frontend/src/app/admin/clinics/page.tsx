@@ -50,7 +50,7 @@ export default function ClinicsApproval() {
   const fetchClinics = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/v1/admin/clinics', {
+      const response = await fetch('http://localhost:3000/api/v1/admin/clinics', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -72,7 +72,7 @@ export default function ClinicsApproval() {
   const approveClinic = async (clinicId: string, notes: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v1/admin/clinics/${clinicId}/approve`, {
+      const response = await fetch(`http://localhost:3000/api/v1/admin/clinics/${clinicId}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ export default function ClinicsApproval() {
   const rejectClinic = async (clinicId: string, notes: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v1/admin/clinics/${clinicId}/reject`, {
+      const response = await fetch(`http://localhost:3000/api/v1/admin/clinics/${clinicId}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

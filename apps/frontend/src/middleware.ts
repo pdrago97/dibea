@@ -57,13 +57,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Se tem token, verificar se está tentando acessar /dashboard genérico
-  if (token && pathname === '/dashboard') {
-    // Aqui você poderia decodificar o JWT para pegar o role
-    // Por simplicidade, vamos redirecionar para citizen por padrão
-    // Em produção, você decodificaria o token para pegar o role real
-    return NextResponse.redirect(new URL('/citizen/dashboard', request.url));
-  }
+  // A página /dashboard/page.tsx já faz o redirecionamento correto baseado no role
+  // Não precisamos fazer nada aqui, apenas permitir o acesso
 
   // Verificar autorização baseada em role para rotas específicas
   if (token && isProtectedRoute) {
