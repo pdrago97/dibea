@@ -72,6 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 Attempting login for:', email);
+
       // Real authentication via API
       const response = await fetch('http://localhost:3000/api/v1/auth/login', {
         method: 'POST',
@@ -79,20 +81,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password })
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        console.error('Login failed:', response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Login failed:', response.statusText, errorData);
         return false;
       }
 
       const data = await response.json();
-      
+      console.log('✅ Login response:', data);
+
       if (data.success && data.token && data.user) {
+        console.log('💾 Saving to localStorage and cookies...');
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Salvar token em cookie para o middleware
+        document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+
         setUser(data.user);
+        console.log('🎉 Login successful!');
         return true;
       }
 
+      console.warn('⚠️ Login response missing required fields:', data);
       return false;
       
       /* REMOVED MOCK AUTH
@@ -145,7 +158,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       */
       return false;
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('💥 Erro no login:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('🌐 Erro de rede - verifique se o backend está rodando em http://localhost:3000');
+      }
       return false;
     }
   };

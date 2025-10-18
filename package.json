@@ -9,8 +9,11 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:public": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run tunnel:start\"",
     "dev:backend": "npm run dev --workspace=@dibea/backend",
     "dev:frontend": "npm run dev --workspace=@dibea/frontend",
+    "tunnel:start": "node scripts/start-tunnel.js",
+    "tunnel:stop": "node scripts/stop-tunnel.js",
     "build": "npm run build --workspaces",
     "build:backend": "npm run build --workspace=@dibea/backend",
     "build:frontend": "npm run build --workspace=@dibea/frontend",
@@ -25,6 +28,7 @@
     "docker:logs": "docker-compose logs -f"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "prettier": "^3.1.1",

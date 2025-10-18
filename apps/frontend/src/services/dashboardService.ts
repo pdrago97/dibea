@@ -66,6 +66,7 @@ export interface DashboardStats {
 
 class DashboardService {
   private baseUrl: string;
+  private requestTimeout: number = 5000; // 5 second timeout
 
   constructor() {
     this.baseUrl = 'https://n8n-moveup-u53084.vm.elestio.app';
@@ -86,9 +87,26 @@ class DashboardService {
     return {};
   }
 
+  private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
   async getFeaturedAnimals(): Promise<AnimalCard[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/webhook/dibea-get-featured-animals`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/webhook/dibea-get-featured-animals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +142,7 @@ class DashboardService {
         return [];
       }
 
-      const response = await fetch(`${this.baseUrl}/webhook/dibea-get-user-processes`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/webhook/dibea-get-user-processes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +174,7 @@ class DashboardService {
         return [];
       }
 
-      const response = await fetch(`${this.baseUrl}/webhook/dibea-get-notifications`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/webhook/dibea-get-notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +203,7 @@ class DashboardService {
 
   async getDashboardStats(): Promise<DashboardStats> {
     try {
-      const response = await fetch(`${this.baseUrl}/webhook/dibea-get-dashboard-stats`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/webhook/dibea-get-dashboard-stats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -70,8 +70,8 @@ export default function LandingPage() {
         // Try backend first, fallback to direct Supabase
         try {
           const [statsResponse, animalsResponse] = await Promise.all([
-            fetch('http://localhost:3003/api/v1/landing/stats'),
-            fetch('http://localhost:3003/api/v1/landing/animals')
+            fetch('http://localhost:3000/api/v1/landing/stats'),
+            fetch('http://localhost:3000/api/v1/landing/animals')
           ]);
 
           if (statsResponse.ok && animalsResponse.ok) {

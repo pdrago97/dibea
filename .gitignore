@@ -230,3 +230,11 @@ apps/frontend/.env.local
 # Documentation files with credential examples (not to be committed)
 GET_SUPABASE_KEYS.md
 SUPABASE_SETUP_COMPLETE.md
+
+# Tunnel files
+.tunnel-pids
+.tunnel-urls.json
+cloudflare-frontend.log
+cloudflare-backend.log
+ngrok-frontend.log
+ngrok-backend.log

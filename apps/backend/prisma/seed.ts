@@ -16,16 +16,8 @@ async function main() {
       address: 'Rua Principal, 123 - Centro - Cidade Exemplo - SP',
       phone: '(11) 1234-5678',
       email: 'contato@exemplo.gov.br',
-      configurations: {
-        maxAnimalsPerTutor: 3,
-        adoptionRequiresApproval: true,
-        enableWhatsappBot: true,
-        workingHours: {
-          start: '08:00',
-          end: '17:00',
-          days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-        }
-      }
+      settings: {},
+      active: true
     }
   });
 
@@ -90,57 +82,20 @@ async function main() {
 
   console.log('✅ Demo users created');
 
-  // Create sample tutors
-  const tutor1 = await prisma.tutor.upsert({
-    where: { cpf: '123.456.789-01' },
-    update: {},
-    create: {
-      cpf: '123.456.789-01',
-      rg: '12.345.678-9',
-      name: 'Ana Costa',
-      email: 'ana.costa@email.com',
-      phone: '(11) 91234-5678',
-      fullAddress: 'Rua das Flores, 456 - Jardim Primavera',
-      zipCode: '01234-567',
-      city: 'São Paulo',
-      state: 'SP',
-      housingType: 'CASA',
-      hasExperience: true,
-      municipalityId: municipality.id
-    }
-  });
-
-  const tutor2 = await prisma.tutor.upsert({
-    where: { cpf: '987.654.321-09' },
-    update: {},
-    create: {
-      cpf: '987.654.321-09',
-      rg: '98.765.432-1',
-      name: 'Carlos Oliveira',
-      email: 'carlos.oliveira@email.com',
-      phone: '(11) 98765-4321',
-      fullAddress: 'Av. Central, 789 - Vila Nova',
-      zipCode: '09876-543',
-      city: 'São Paulo',
-      state: 'SP',
-      housingType: 'APARTAMENTO',
-      hasExperience: false,
-      municipalityId: municipality.id
-    }
-  });
-
-  console.log('✅ Sample tutors created');
-
   // Create sample microchips
-  const microchip1 = await prisma.microchip.create({
-    data: {
+  const microchip1 = await prisma.microchip.upsert({
+    where: { number: '982000123456789' },
+    update: {},
+    create: {
       number: '982000123456789',
       municipalityId: municipality.id
     }
   });
 
-  const microchip2 = await prisma.microchip.create({
-    data: {
+  const microchip2 = await prisma.microchip.upsert({
+    where: { number: '982000987654321' },
+    update: {},
+    create: {
       number: '982000987654321',
       municipalityId: municipality.id
     }
@@ -148,9 +103,11 @@ async function main() {
 
   console.log('✅ Sample microchips created');
 
-  // Create sample animals
-  const animal1 = await prisma.animal.create({
-    data: {
+  // Create sample animals (using upsert to avoid duplicates)
+  const animal1 = await prisma.animal.upsert({
+    where: { qrCode: 'QR_REX_001' },
+    update: {},
+    create: {
       name: 'Rex',
       species: AnimalSpecies.CANINO,
       breed: 'Labrador',
@@ -168,8 +125,10 @@ async function main() {
     }
   });
 
-  const animal2 = await prisma.animal.create({
-    data: {
+  const animal2 = await prisma.animal.upsert({
+    where: { qrCode: 'QR_LUNA_002' },
+    update: {},
+    create: {
       name: 'Luna',
       species: AnimalSpecies.FELINO,
       breed: 'SRD',
@@ -189,34 +148,68 @@ async function main() {
 
   console.log('✅ Sample animals created');
 
-  // Create medical history for animals
-  await prisma.medicalHistory.createMany({
-    data: [
-      {
-        animalId: animal1.id,
-        type: 'VACINA',
-        description: 'Vacina V10',
-        date: new Date('2023-01-15'),
-        veterinarian: 'Dr. João Silva'
-      },
-      {
-        animalId: animal1.id,
-        type: 'PROCEDIMENTO',
-        description: 'Castração',
-        date: new Date('2023-02-10'),
-        veterinarian: 'Dr. João Silva'
-      },
-      {
-        animalId: animal2.id,
-        type: 'VACINA',
-        description: 'Vacina Tríplice Felina',
-        date: new Date('2023-01-20'),
-        veterinarian: 'Dr. João Silva'
-      }
-    ]
+  // Create more animals for better stats
+  await prisma.animal.upsert({
+    where: { qrCode: 'QR_THOR_003' },
+    update: {},
+    create: {
+      name: 'Thor',
+      species: AnimalSpecies.CANINO,
+      breed: 'Pastor Alemão',
+      sex: AnimalSex.MACHO,
+      size: AnimalSize.GRANDE,
+      birthDate: new Date('2019-05-10'),
+      weight: 35.0,
+      color: 'Preto e marrom',
+      temperament: 'Protetor, leal, inteligente',
+      observations: 'Ótimo cão de guarda, treinado, todas as vacinas em dia',
+      status: AnimalStatus.DISPONIVEL,
+      qrCode: 'QR_THOR_003',
+      municipalityId: municipality.id
+    }
   });
 
-  console.log('✅ Medical history created');
+  await prisma.animal.upsert({
+    where: { qrCode: 'QR_MEL_004' },
+    update: {},
+    create: {
+      name: 'Mel',
+      species: AnimalSpecies.FELINO,
+      breed: 'Siamês',
+      sex: AnimalSex.FEMEA,
+      size: AnimalSize.PEQUENO,
+      birthDate: new Date('2022-03-15'),
+      weight: 3.5,
+      color: 'Creme com pontas escuras',
+      temperament: 'Vocal, carinhosa, brincalhona',
+      observations: 'Gata muito comunicativa, castrada, vacinada',
+      status: AnimalStatus.DISPONIVEL,
+      qrCode: 'QR_MEL_004',
+      municipalityId: municipality.id
+    }
+  });
+
+  await prisma.animal.upsert({
+    where: { qrCode: 'QR_BOB_005' },
+    update: {},
+    create: {
+      name: 'Bob',
+      species: AnimalSpecies.CANINO,
+      breed: 'Beagle',
+      sex: AnimalSex.MACHO,
+      size: AnimalSize.MEDIO,
+      birthDate: new Date('2021-11-20'),
+      weight: 12.0,
+      color: 'Tricolor',
+      temperament: 'Alegre, curioso, amigável',
+      observations: 'Cão muito ativo, adora brincar, castrado e vacinado',
+      status: AnimalStatus.ADOTADO,
+      qrCode: 'QR_BOB_005',
+      municipalityId: municipality.id
+    }
+  });
+
+  console.log('✅ Additional animals created');
 
   console.log('🎉 Database seeding completed successfully!');
   console.log('\n📋 Created demo accounts:');
@@ -225,8 +218,17 @@ async function main() {
   console.log('👨‍💼 Funcionário: func@dibea.com / func123');
   console.log('👤 Cidadão: cidadao@dibea.com / cidadao123');
   console.log('\n🐕 Created sample animals:');
-  console.log('• Rex (Cão Labrador) - Disponível para adoção');
-  console.log('• Luna (Gata SRD) - Disponível para adoção');
+  console.log('• Rex (Cão Labrador) - Disponível');
+  console.log('• Luna (Gata SRD) - Disponível');
+  console.log('• Thor (Pastor Alemão) - Disponível');
+  console.log('• Mel (Siamês) - Disponível');
+  console.log('• Bob (Beagle) - Adotado');
+  console.log('\n📊 Stats:');
+  console.log('• Total de animais: 5');
+  console.log('• Disponíveis para adoção: 4');
+  console.log('• Adotados: 1');
+  console.log('• Municípios ativos: 1');
+  console.log('• Usuários registrados: 4');
 }
 
 main()

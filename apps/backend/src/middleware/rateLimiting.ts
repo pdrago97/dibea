@@ -1,5 +1,4 @@
 import rateLimit from 'express-rate-limit';
-import { redis } from '../index';
 
 // Strict rate limiting for authentication endpoints
 export const authLimiter = rateLimit({
@@ -10,23 +9,7 @@ export const authLimiter = rateLimit({
     error: 'Too many authentication attempts, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  // Use Redis for distributed rate limiting
-  store: redis ? {
-    incr: async (key: string) => {
-      const current = await redis.incr(key);
-      if (current === 1) {
-        await redis.expire(key, 15 * 60); // 15 minutes
-      }
-      return current;
-    },
-    decrement: async (key: string) => {
-      return await redis.decr(key);
-    },
-    resetKey: async (key: string) => {
-      await redis.del(key);
-    }
-  } : undefined
+  legacyHeaders: false
 });
 
 // Moderate rate limiting for general API endpoints

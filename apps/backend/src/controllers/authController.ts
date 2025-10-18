@@ -78,9 +78,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       refreshToken,
       user: {
         id: user.id,
+        name: user.name,
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
+        isActive: user.isActive,
       },
     });
   } catch (error) {
@@ -159,7 +161,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     const user = await prisma.user.create({
       data: {
         email,
-        phone,
+        ...(phone && { phone }),
         passwordHash: hashedPassword,
         role,
         municipalityId,
@@ -191,9 +193,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       refreshToken,
       user: {
         id: user.id,
+        name: user.name,
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
+        isActive: user.isActive,
       },
       message:
         role === "CIDADAO"
@@ -305,9 +309,11 @@ export const refreshToken = async (
       refreshToken: newRefreshToken,
       user: {
         id: user.id,
+        name: user.name,
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
+        isActive: user.isActive,
       },
     });
   } catch (error) {

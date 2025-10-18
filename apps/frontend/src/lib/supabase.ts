@@ -24,10 +24,10 @@ export const supabaseHelpers = {
         { count: totalMunicipalities },
         { count: totalUsers }
       ] = await Promise.all([
-        supabase.from('animals').select('*', { count: 'exact', head: true }),
-        supabase.from('animals').select('*', { count: 'exact', head: true }).eq('status', 'DISPONIVEL'),
-        supabase.from('animals').select('*', { count: 'exact', head: true }).eq('status', 'ADOTADO'),
-        supabase.from('municipalities').select('*', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('animais').select('*', { count: 'exact', head: true }),
+        supabase.from('animais').select('*', { count: 'exact', head: true }).eq('status', 'DISPONIVEL'),
+        supabase.from('animais').select('*', { count: 'exact', head: true }).eq('status', 'ADOTADO'),
+        supabase.from('municipios').select('*', { count: 'exact', head: true }).eq('ativo', true),
         supabase.from('users').select('*', { count: 'exact', head: true })
       ]);
 
@@ -49,10 +49,10 @@ export const supabaseHelpers = {
   async getFeaturedAnimals() {
     try {
       const { data: animals, error } = await supabase
-        .from('animals')
+        .from('animais')
         .select(`
           *,
-          municipality:municipalities(name, state)
+          municipality:municipios(nome)
         `)
         .eq('status', 'DISPONIVEL')
         .order('created_at', { ascending: false })
@@ -65,12 +65,12 @@ export const supabaseHelpers = {
 
       return animals?.map((animal: any) => ({
         id: animal.id,
-        name: animal.name,
-        species: animal.species === 'CANINO' ? 'Cão' : animal.species === 'FELINO' ? 'Gato' : animal.species,
-        age: animal.age ? `${animal.age} anos` : 'Idade não informada',
-        description: animal.description || 'Animal carinhoso e brincalhão',
-        image: animal.image_url || 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
-        municipality: animal.municipality?.name || 'N/A',
+        name: animal.nome,
+        species: animal.especie === 'CANINO' ? 'Cão' : animal.especie === 'FELINO' ? 'Gato' : animal.especie,
+        age: animal.data_nascimento ? `${new Date().getFullYear() - new Date(animal.data_nascimento).getFullYear()} anos` : 'Idade não informada',
+        description: animal.observacoes || 'Animal carinhoso e brincalhão',
+        image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
+        municipality: animal.municipality?.nome || 'N/A',
         urgent: false
       })) || [];
     } catch (error) {
@@ -83,10 +83,10 @@ export const supabaseHelpers = {
   async getAnimals(filters?: { status?: string; species?: string; municipality_id?: string }) {
     try {
       let query = supabase
-        .from('animals')
+        .from('animais')
         .select(`
           *,
-          municipality:municipalities(name, state)
+          municipality:municipios(nome)
         `)
         .order('created_at', { ascending: false });
 
@@ -95,7 +95,7 @@ export const supabaseHelpers = {
       }
 
       if (filters?.species && filters.species !== 'all') {
-        query = query.eq('species', filters.species);
+        query = query.eq('especie', filters.species);
       }
 
       if (filters?.municipality_id) {
@@ -111,16 +111,16 @@ export const supabaseHelpers = {
 
       return animals?.map((animal: any) => ({
         id: animal.id,
-        name: animal.name,
-        species: animal.species,
-        breed: animal.breed || 'SRD',
-        sex: animal.sex,
-        age: animal.age,
-        size: animal.size,
-        description: animal.description,
+        name: animal.nome,
+        species: animal.especie,
+        breed: animal.raca || 'SRD',
+        sex: animal.sexo,
+        age: animal.data_nascimento ? new Date().getFullYear() - new Date(animal.data_nascimento).getFullYear() : null,
+        size: animal.porte,
+        description: animal.observacoes,
         status: animal.status,
-        municipality: animal.municipality?.name || 'N/A',
-        image: animal.image_url,
+        municipality: animal.municipality?.nome || 'N/A',
+        image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop',
         createdAt: animal.created_at
       })) || [];
     } catch (error) {
@@ -133,10 +133,10 @@ export const supabaseHelpers = {
   async getMunicipalities() {
     try {
       const { data: municipalities, error } = await supabase
-        .from('municipalities')
+        .from('municipios')
         .select('*')
-        .eq('active', true)
-        .order('name');
+        .eq('ativo', true)
+        .order('nome');
 
       if (error) {
         console.error('❌ Error fetching municipalities:', error);

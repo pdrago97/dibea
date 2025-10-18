@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const hasRedirected = useRef(false);
 
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -25,17 +26,15 @@ export default function LoginPage() {
 
   // Se já está logado ao carregar a página, redireciona
   useEffect(() => {
-    if (isAuthenticated) {
-      // Aguarda um frame para garantir que o user está completamente carregado
-      const timer = setTimeout(() => {
-        const redirect = searchParams.get('redirect') || '/dashboard';
-        console.log('Login page: User is authenticated, redirecting to:', redirect);
-        router.push(redirect);
-      }, 100); // Pequeno delay para garantir sincronização
-      
-      return () => clearTimeout(timer);
+    if (isAuthenticated && !hasRedirected.current) {
+      hasRedirected.current = true;
+      const redirect = searchParams.get('redirect') || '/dashboard';
+      console.log('Login page: User is authenticated, redirecting to:', redirect);
+
+      // Usar window.location para forçar navegação completa
+      window.location.href = redirect;
     }
-  }, [isAuthenticated, router, searchParams]);
+  }, [isAuthenticated, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

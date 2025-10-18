@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -8,11 +8,16 @@ import { Loader2 } from 'lucide-react';
 export default function DashboardRedirectPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
+    // Evitar múltiplos redirecionamentos
+    if (hasRedirected.current) return;
+
     if (!isLoading) {
       if (!user) {
-        router.push('/auth/login');
+        hasRedirected.current = true;
+        router.push('/auth/login?redirect=/dashboard');
         return;
       }
 
@@ -26,9 +31,11 @@ export default function DashboardRedirectPage() {
 
       const targetDashboard = dashboardMap[user.role as keyof typeof dashboardMap];
       if (targetDashboard) {
+        hasRedirected.current = true;
         router.replace(targetDashboard);
       } else {
         // Fallback para página inicial se role não reconhecido
+        hasRedirected.current = true;
         router.push('/');
       }
     }

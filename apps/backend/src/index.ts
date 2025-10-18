@@ -6,7 +6,6 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import Redis from 'ioredis';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +20,7 @@ import complaintRoutes from './routes/complaints';
 import campaignRoutes from './routes/campaigns';
 import dashboardRoutes from './routes/dashboard';
 import notificationRoutes from './routes/notifications';
+import landingRoutes from './routes/landing'; // Landing page routes
 // import taskRoutes from './routes/tasks'; // Temporarily disabled due to TypeScript errors
 import n8nRoutes from './routes/n8n'; // N8N internal routes
 import adminRoutes from './routes/admin'; // Admin routes
@@ -41,11 +41,11 @@ import { logger } from './utils/logger';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - necessário para Cloudflare Tunnel e outros proxies reversos
+app.set('trust proxy', true);
+
 // Initialize Prisma Client
 export const prisma = new PrismaClient();
-
-// Initialize Redis Client
-export const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 // Rate limiting
 const limiter = rateLimit({
@@ -59,9 +59,16 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'production'
     ? ['https://dibea.com.br', 'https://www.dibea.com.br']
-    : ['http://localhost:3001', 'http://localhost:3000'],
+    : [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        /\.trycloudflare\.com$/, // Aceitar qualquer URL do Cloudflare Tunnel
+        /\.ngrok\.io$/, // Aceitar qualquer URL do ngrok
+        /\.loca\.lt$/ // Aceitar qualquer URL do localtunnel
+      ],
   credentials: true
 }));
 app.use(compression());
@@ -75,16 +82,12 @@ app.get('/health', async (req, res) => {
   try {
     // Check database connection
     await prisma.$queryRaw`SELECT 1`;
-    
-    // Check Redis connection
-    await redis.ping();
-    
+
     res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       services: {
-        database: 'connected',
-        redis: 'connected'
+        database: 'connected'
       }
     });
   } catch (error) {
@@ -107,6 +110,7 @@ app.use('/api/v1/complaints', complaintRoutes);
 app.use('/api/v1/campaigns', campaignRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/landing', landingRoutes);
 // app.use('/api/v1/tasks', taskRoutes); // Temporarily disabled
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
