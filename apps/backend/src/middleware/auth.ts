@@ -40,13 +40,13 @@ export const authenticate = async (
     // Check if user still exists and is active using Prisma
     const user = await prisma.user.findUnique({
       where: {
-        id: decoded.userId
+        id: decoded.userId,
       },
       include: {
         municipality: {
-          select: { id: true, name: true, active: true }
-        }
-      }
+          select: { id: true, name: true, active: true },
+        },
+      },
     });
 
     if (!user || !user.isActive) {
@@ -158,13 +158,13 @@ export const optionalAuth = async (
     // Check if user still exists and is active using Prisma
     const user = await prisma.user.findUnique({
       where: {
-        id: decoded.userId
+        id: decoded.userId,
       },
       include: {
         municipality: {
-          select: { id: true, name: true, active: true }
-        }
-      }
+          select: { id: true, name: true, active: true },
+        },
+      },
     });
 
     if (user && (!user.municipality || user.municipality.active)) {
@@ -186,6 +186,9 @@ export const optionalAuth = async (
     next();
   }
 };
+
+// Alias for authenticate - commonly used middleware name
+export const protect = authenticate;
 
 // N8N Internal API Key Authentication
 // Allows n8n to call internal APIs using a secure API key

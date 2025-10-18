@@ -1,31 +1,38 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { z } from 'zod';
-import { logger } from '../utils/logger';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
+import { logger } from "../utils/logger";
 
 const prisma = new PrismaClient();
 
 // Validation schemas
 const createTaskSchema = z.object({
-  title: z.string().min(1, 'Título é obrigatório'),
-  description: z.string().min(1, 'Descrição é obrigatória'),
-  type: z.enum(['ADOPTION_REVIEW', 'DOCUMENT_VERIFICATION', 'ANIMAL_UPDATE', 'SYSTEM_MAINTENANCE']),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  title: z.string().min(1, "Título é obrigatório"),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  type: z.enum([
+    "ADOPTION_REVIEW",
+    "DOCUMENT_VERIFICATION",
+    "ANIMAL_UPDATE",
+    "SYSTEM_MAINTENANCE",
+  ]),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
   assignedToId: z.string().optional(),
   animalId: z.string().optional(),
   adoptionId: z.string().optional(),
   metadata: z.any().optional(),
-  dueDate: z.string().optional()
+  dueDate: z.string().optional(),
 });
 
 const updateTaskSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  status: z
+    .enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"])
+    .optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   assignedToId: z.string().optional(),
   metadata: z.any().optional(),
-  dueDate: z.string().optional()
+  dueDate: z.string().optional(),
 });
 
 const taskFiltersSchema = z.object({
@@ -39,7 +46,7 @@ const taskFiltersSchema = z.object({
   animalId: z.string().optional(),
   adoptionId: z.string().optional(),
   dueDateFrom: z.string().optional(),
-  dueDateTo: z.string().optional()
+  dueDateTo: z.string().optional(),
 });
 
 // @route   GET /api/v1/tasks
@@ -50,10 +57,22 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
     const filters = taskFiltersSchema.parse({
       page: parseInt(req.query.page as string) || 1,
       limit: parseInt(req.query.limit as string) || 20,
-      ...req.query
+      ...req.query,
     });
 
-    const { page, limit, type, status, priority, createdById, assignedToId, animalId, adoptionId, dueDateFrom, dueDateTo } = filters;
+    const {
+      page,
+      limit,
+      type,
+      status,
+      priority,
+      createdById,
+      assignedToId,
+      animalId,
+      adoptionId,
+      dueDateFrom,
+      dueDateTo,
+    } = filters;
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
@@ -62,22 +81,19 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
     const where: any = {};
 
     // Role-based filtering
-    if (userRole === 'CIDADAO') {
+    if (userRole === "CIDADAO") {
       // Citizens can only see tasks related to their adoptions
       where.OR = [
         { createdById: userId },
-        { 
+        {
           adoption: {
-            tutorId: userId
-          }
-        }
+            tutorId: userId,
+          },
+        },
       ];
-    } else if (userRole !== 'ADMIN') {
+    } else if (userRole !== "ADMIN") {
       // Staff can see tasks assigned to them or created by them
-      where.OR = [
-        { createdById: userId },
-        { assignedToId: userId }
-      ];
+      where.OR = [{ createdById: userId }, { assignedToId: userId }];
     }
 
     if (type) where.type = type;
@@ -100,29 +116,23 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
         where,
         skip,
         take: limit,
-        orderBy: [
-          { priority: 'desc' },
-          { createdAt: 'desc' }
-        ],
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
         include: {
           createdBy: {
-            select: { id: true, name: true, email: true }
+            select: { id: true, name: true, email: true },
           },
           assignedTo: {
-            select: { id: true, name: true, email: true }
+            select: { id: true, name: true, email: true },
           },
           animal: {
-            select: { id: true, name: true, species: true }
+            select: { id: true, name: true, species: true },
           },
           adoption: {
-            select: { id: true, status: true }
+            select: { id: true, status: true },
           },
-          notifications: {
-            select: { id: true, title: true, status: true }
-          }
-        }
+        },
       }),
-      prisma.task.count({ where })
+      prisma.task.count({ where }),
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -136,22 +146,21 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
         total,
         totalPages,
         hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
+        hasPrev: page > 1,
+      },
     });
-
   } catch (error) {
-    logger.error('Error fetching tasks:', error);
+    logger.error("Error fetching tasks:", error);
     if (error instanceof z.ZodError) {
       res.status(400).json({
         success: false,
-        message: 'Dados inválidos',
-        errors: error.errors
+        message: "Dados inválidos",
+        errors: error.errors,
       });
     } else {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor'
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -170,55 +179,54 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
       where: { id },
       include: {
         createdBy: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         assignedTo: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         animal: {
-          select: { id: true, name: true, species: true, breed: true }
+          select: { id: true, name: true, species: true, breed: true },
         },
         adoption: {
-          select: { id: true, status: true, tutorId: true }
+          select: { id: true, status: true, tutorId: true },
         },
-        notifications: {
-          select: { id: true, title: true, status: true, createdAt: true }
-        }
-      }
+      },
     });
 
     if (!task) {
       res.status(404).json({
         success: false,
-        message: 'Tarefa não encontrada'
+        message: "Tarefa não encontrada",
       });
       return;
     }
 
     // Check access permissions
-    const canAccess = userRole === 'ADMIN' || 
-                     task.createdById === userId || 
-                     task.assignedToId === userId ||
-                     (userRole === 'CIDADAO' && task.adoption?.tutorId === userId);
+    const canAccess =
+      userRole === "ADMIN" ||
+      task.createdById === userId ||
+      task.assignedToId === userId ||
+      (userRole === "CIDADAO" &&
+        task.adoptionId &&
+        task.adoption?.tutorId === userId);
 
     if (!canAccess) {
       res.status(403).json({
         success: false,
-        message: 'Acesso negado'
+        message: "Acesso negado",
       });
       return;
     }
 
     res.json({
       success: true,
-      data: task
+      data: task,
     });
-
   } catch (error) {
-    logger.error('Error fetching task:', error);
+    logger.error("Error fetching task:", error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };
@@ -226,7 +234,10 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
 // @route   POST /api/v1/tasks
 // @desc    Create new task
 // @access  Private (ADMIN, FUNCIONARIO, VETERINARIO)
-export const createTask = async (req: Request, res: Response): Promise<void> => {
+export const createTask = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const validatedData = createTaskSchema.parse(req.body);
     const createdById = (req as any).user?.id;
@@ -235,23 +246,25 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
       data: {
         ...validatedData,
         createdById,
-        metadata: validatedData.metadata ? JSON.stringify(validatedData.metadata) : null,
-        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null
+        metadata: validatedData.metadata
+          ? JSON.stringify(validatedData.metadata)
+          : null,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
       },
       include: {
         createdBy: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         assignedTo: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         animal: {
-          select: { id: true, name: true, species: true }
+          select: { id: true, name: true, species: true },
         },
         adoption: {
-          select: { id: true, status: true }
-        }
-      }
+          select: { id: true, status: true },
+        },
+      },
     });
 
     // Create notification for assigned user
@@ -260,13 +273,18 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
         data: {
           titulo: `Nova tarefa atribuída: ${task.title}`,
           conteudo: task.description,
-          tipo: 'PUSH',
-          categoria: 'SISTEMA',
-          prioridade: task.priority,
+          tipo: "PUSH",
+          categoria: "SISTEMA",
+          prioridade:
+            task.priority === "HIGH"
+              ? "ALTA"
+              : task.priority === "MEDIUM"
+                ? "MEDIA"
+                : "BAIXA",
           userId: task.assignedToId,
-          relacionadoTipo: 'TASK',
-          relacionadoId: task.id
-        }
+          relacionadoTipo: "TASK",
+          relacionadoId: task.id,
+        },
       });
     }
 
@@ -275,21 +293,20 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
     res.status(201).json({
       success: true,
       data: task,
-      message: 'Tarefa criada com sucesso'
+      message: "Tarefa criada com sucesso",
     });
-
   } catch (error) {
-    logger.error('Error creating task:', error);
+    logger.error("Error creating task:", error);
     if (error instanceof z.ZodError) {
       res.status(400).json({
         success: false,
-        message: 'Dados inválidos',
-        errors: error.errors
+        message: "Dados inválidos",
+        errors: error.errors,
       });
     } else {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor'
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -298,7 +315,10 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 // @route   PUT /api/v1/tasks/:id
 // @desc    Update task
 // @access  Private
-export const updateTask = async (req: Request, res: Response): Promise<void> => {
+export const updateTask = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;
@@ -309,27 +329,28 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
     const existingTask = await prisma.task.findUnique({
       where: { id },
       include: {
-        adoption: true
-      }
+        adoption: true,
+      },
     });
 
     if (!existingTask) {
       res.status(404).json({
         success: false,
-        message: 'Tarefa não encontrada'
+        message: "Tarefa não encontrada",
       });
       return;
     }
 
     // Check permissions
-    const canUpdate = userRole === 'ADMIN' ||
-                     existingTask.createdById === userId ||
-                     existingTask.assignedToId === userId;
+    const canUpdate =
+      userRole === "ADMIN" ||
+      existingTask.createdById === userId ||
+      existingTask.assignedToId === userId;
 
     if (!canUpdate) {
       res.status(403).json({
         success: false,
-        message: 'Acesso negado'
+        message: "Acesso negado",
       });
       return;
     }
@@ -346,7 +367,10 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
     }
 
     // If marking as completed, set completedAt
-    if (validatedData.status === 'COMPLETED' && existingTask.status !== 'COMPLETED') {
+    if (
+      validatedData.status === "COMPLETED" &&
+      existingTask.status !== "COMPLETED"
+    ) {
       updateData.completedAt = new Date();
     }
 
@@ -355,29 +379,30 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
       data: updateData,
       include: {
         createdBy: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         assignedTo: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true },
         },
         animal: {
-          select: { id: true, name: true, species: true }
+          select: { id: true, name: true, species: true },
         },
         adoption: {
-          select: { id: true, status: true }
-        }
-      }
+          select: { id: true, status: true },
+        },
+      },
     });
 
     // Create notification for status changes
     if (validatedData.status && validatedData.status !== existingTask.status) {
       const statusMessages = {
-        'IN_PROGRESS': 'iniciada',
-        'COMPLETED': 'concluída',
-        'CANCELLED': 'cancelada'
+        IN_PROGRESS: "iniciada",
+        COMPLETED: "concluída",
+        CANCELLED: "cancelada",
       };
 
-      const message = statusMessages[validatedData.status as keyof typeof statusMessages];
+      const message =
+        statusMessages[validatedData.status as keyof typeof statusMessages];
 
       if (message) {
         // Notify creator if different from updater
@@ -386,13 +411,13 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             data: {
               titulo: `Tarefa ${message}: ${task.title}`,
               conteudo: `A tarefa foi ${message}`,
-              tipo: 'PUSH',
-              categoria: 'SISTEMA',
-              prioridade: 'MEDIA',
+              tipo: "PUSH",
+              categoria: "SISTEMA",
+              prioridade: "MEDIA",
               userId: existingTask.createdById,
-              relacionadoTipo: 'TASK',
-              relacionadoId: task.id
-            }
+              relacionadoTipo: "TASK",
+              relacionadoId: task.id,
+            },
           });
         }
 
@@ -402,13 +427,13 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             data: {
               titulo: `Tarefa ${message}: ${task.title}`,
               conteudo: `A tarefa foi ${message}`,
-              tipo: 'PUSH',
-              categoria: 'SISTEMA',
-              prioridade: 'MEDIA',
+              tipo: "PUSH",
+              categoria: "SISTEMA",
+              prioridade: "MEDIA",
               userId: existingTask.assignedToId,
-              relacionadoTipo: 'TASK',
-              relacionadoId: task.id
-            }
+              relacionadoTipo: "TASK",
+              relacionadoId: task.id,
+            },
           });
         }
       }
@@ -417,21 +442,20 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
     res.json({
       success: true,
       data: task,
-      message: 'Tarefa atualizada com sucesso'
+      message: "Tarefa atualizada com sucesso",
     });
-
   } catch (error) {
-    logger.error('Error updating task:', error);
+    logger.error("Error updating task:", error);
     if (error instanceof z.ZodError) {
       res.status(400).json({
         success: false,
-        message: 'Dados inválidos',
-        errors: error.errors
+        message: "Dados inválidos",
+        errors: error.errors,
       });
     } else {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor'
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -440,47 +464,49 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 // @route   DELETE /api/v1/tasks/:id
 // @desc    Delete task
 // @access  Private (ADMIN, Creator only)
-export const deleteTask = async (req: Request, res: Response): Promise<void> => {
+export const deleteTask = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
 
     const task = await prisma.task.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!task) {
       res.status(404).json({
         success: false,
-        message: 'Tarefa não encontrada'
+        message: "Tarefa não encontrada",
       });
       return;
     }
 
     // Only admin or creator can delete
-    if (userRole !== 'ADMIN' && task.createdById !== userId) {
+    if (userRole !== "ADMIN" && task.createdById !== userId) {
       res.status(403).json({
         success: false,
-        message: 'Acesso negado'
+        message: "Acesso negado",
       });
       return;
     }
 
     await prisma.task.delete({
-      where: { id }
+      where: { id },
     });
 
     res.json({
       success: true,
-      message: 'Tarefa excluída com sucesso'
+      message: "Tarefa excluída com sucesso",
     });
-
   } catch (error) {
-    logger.error('Error deleting task:', error);
+    logger.error("Error deleting task:", error);
     res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor'
+      message: "Erro interno do servidor",
     });
   }
 };

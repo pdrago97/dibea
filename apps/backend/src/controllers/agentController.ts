@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export class AgentController {
   // Create Animal via Agent
-  async createAnimal(req: Request, res: Response) {
+  async createAnimal(req: Request, res: Response): Promise<any> {
     try {
       const {
         name,
@@ -37,18 +37,17 @@ export class AgentController {
       const animal = await prisma.animal.create({
         data: {
           id: animalId,
-          nome: name,
-          especie: species,
-          raca: breed,
-          sexo: sex,
-          porte: size,
-          peso: weight ? parseFloat(weight) : null,
-          cor: color,
-          temperamento: observations || "",
+          name,
+          species,
+          breed,
+          sex,
+          size,
+          weight: weight ? parseFloat(weight) : null,
+          color,
+          observations: observations || "",
           status,
           municipalityId,
           qrCode,
-          observacoes: observations,
         },
       });
 
@@ -91,7 +90,7 @@ export class AgentController {
   }
 
   // Create Procedure via Agent
-  async createProcedure(req: Request, res: Response) {
+  async createProcedure(req: Request, res: Response): Promise<any> {
     try {
       const {
         animalId,
@@ -165,7 +164,7 @@ export class AgentController {
   }
 
   // Search Animals by Name
-  async searchAnimals(req: Request, res: Response) {
+  async searchAnimals(req: Request, res: Response): Promise<any> {
     try {
       const { name } = req.query;
 
@@ -177,7 +176,7 @@ export class AgentController {
 
       const animals = await prisma.animal.findMany({
         where: {
-          nome: {
+          name: {
             contains: name as string,
           },
         },
@@ -185,7 +184,7 @@ export class AgentController {
         include: {
           municipality: {
             select: {
-              nome: true,
+              name: true,
             },
           },
         },
@@ -271,7 +270,7 @@ export class AgentController {
   }
 
   // CPF Validation with Real API
-  async validateCPF(req: Request, res: Response) {
+  async validateCPF(req: Request, res: Response): Promise<any> {
     try {
       const { cpf } = req.body;
 
@@ -438,7 +437,7 @@ export class AgentController {
   }
 
   // Execute Database Queries
-  async executeQuery(req: Request, res: Response) {
+  async executeQuery(req: Request, res: Response): Promise<any> {
     try {
       const { query, type } = req.body;
 

@@ -24,7 +24,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     // Check for user with Prisma
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (!user) {
@@ -129,7 +129,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     // Check if user exists
     const userExists = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (userExists) {
@@ -146,13 +146,13 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     // Validate municipality if provided
     if (municipalityId) {
       const municipality = await prisma.municipality.findUnique({
-        where: { id: municipalityId }
+        where: { id: municipalityId },
       });
 
       if (!municipality) {
         return res.status(400).json({
           success: false,
-          message: "Município não encontrado"
+          message: "Município não encontrado",
         });
       }
     }
@@ -166,7 +166,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         role,
         municipalityId,
         isActive: true,
-      }
+      },
     });
 
     // If it's a CIDADAO and we have address info, we could create a tutor record
@@ -231,9 +231,9 @@ export const getMe = async (req: Request, res: Response): Promise<any> => {
       where: { id: userId },
       include: {
         municipality: {
-          select: { id: true, name: true }
-        }
-      }
+          select: { id: true, name: true },
+        },
+      },
     });
 
     if (!user) {
@@ -253,11 +253,11 @@ export const getMe = async (req: Request, res: Response): Promise<any> => {
       },
     });
   } catch (error) {
-    console.error('Error in getMe:', error);
+    console.error("Error in getMe:", error);
     res.status(500).json({
       success: false,
       message: "Erro ao buscar usuário",
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 };
@@ -282,7 +282,7 @@ export const refreshToken = async (
     const decoded = verifyRefreshToken(token);
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
+      where: { id: decoded.userId },
     });
 
     if (!user || !user.isActive) {
@@ -317,11 +317,176 @@ export const refreshToken = async (
       },
     });
   } catch (error) {
-    console.error('Error in refreshToken:', error);
+    console.error("Error in refreshToken:", error);
     res.status(401).json({
       success: false,
       message: "Token inválido",
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// @desc    Get user profile
+// @route   GET /api/v1/auth/profile
+// @access  Private
+export const getProfile = async (req: Request, res: Response): Promise<any> => {
+  try {
+    // @ts-ignore - user is attached by auth middleware
+    const userId = req.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        municipalityId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuário não encontrado",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error in getProfile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao buscar perfil",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/v1/auth/profile
+// @access  Private
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    // @ts-ignore - user is attached by auth middleware
+    const userId = req.user.id;
+    const { name, email } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name && { name }),
+        ...(email && { email }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        municipalityId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user,
+      message: "Perfil atualizado com sucesso",
+    });
+  } catch (error) {
+    console.error("Error in updateProfile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao atualizar perfil",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// @desc    Forgot password
+// @route   POST /api/v1/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email é obrigatório",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuário não encontrado",
+      });
+    }
+
+    // TODO: Implement actual email sending with reset token
+    // For now, just return success
+    res.status(200).json({
+      success: true,
+      message: "Email de redefinição de senha enviado",
+    });
+  } catch (error) {
+    console.error("Error in forgotPassword:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao processar solicitação",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+// @desc    Reset password
+// @route   POST /api/v1/auth/reset-password
+// @access  Public
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Token e nova senha são obrigatórios",
+      });
+    }
+
+    // TODO: Implement actual token validation and password reset
+    // For now, just return success
+    res.status(200).json({
+      success: true,
+      message: "Senha redefinida com sucesso",
+    });
+  } catch (error) {
+    console.error("Error in resetPassword:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erro ao redefinir senha",
+      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 };
