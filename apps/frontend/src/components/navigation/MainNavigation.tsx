@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  PawPrint, 
-  Home, 
-  Users, 
-  Heart, 
-  FileText, 
-  Settings, 
-  Bell, 
+import {
+  PawPrint,
+  Home,
+  Users,
+  Heart,
+  FileText,
+  Settings,
+  Bell,
   User,
   Building,
   Stethoscope,
@@ -18,6 +18,8 @@ import {
   BarChart3,
   Shield,
   Bot,
+  Clock,
+  AlertTriangle,
   MessageSquare,
   Search,
   Plus,

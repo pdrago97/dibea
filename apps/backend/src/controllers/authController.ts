@@ -51,7 +51,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (!user.active) {
       return res.status(401).json({
         success: false,
         message: "Conta desativada. Entre em contato com o administrador.",
@@ -82,7 +82,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
-        isActive: user.isActive,
+        active: user.active,
       },
     });
   } catch (error) {
@@ -165,7 +165,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         passwordHash: hashedPassword,
         role,
         municipalityId,
-        isActive: true,
+        active: true,
       },
     });
 
@@ -197,7 +197,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
-        isActive: user.isActive,
+        active: user.active,
       },
       message:
         role === "CIDADAO"
@@ -283,9 +283,17 @@ export const refreshToken = async (
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        municipalityId: true,
+        active: true,
+      },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.active) {
       return res.status(401).json({
         success: false,
         message: "Token inválido ou usuário inativo",
@@ -313,7 +321,7 @@ export const refreshToken = async (
         email: user.email,
         role: user.role,
         municipalityId: user.municipalityId,
-        isActive: user.isActive,
+        active: user.active,
       },
     });
   } catch (error) {
@@ -342,7 +350,7 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         email: true,
         role: true,
         municipalityId: true,
-        isActive: true,
+        active: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -393,7 +401,7 @@ export const updateProfile = async (
         email: true,
         role: true,
         municipalityId: true,
-        isActive: true,
+        active: true,
         createdAt: true,
         updatedAt: true,
       },

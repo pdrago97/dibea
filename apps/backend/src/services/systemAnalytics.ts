@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 export class SystemAnalyticsService {
-  
   // Gerar analytics do sistema
   static async generateSystemAnalytics() {
     try {
@@ -13,50 +12,50 @@ export class SystemAnalyticsService {
       // Métricas de usuários
       const totalUsers = await prisma.user.count();
       const activeUsers = await prisma.user.count({
-        where: { is_active: true }
+        where: { active: true },
       });
       const newUsersToday = await prisma.user.count({
         where: {
           createdAt: {
-            gte: today
-          }
-        }
+            gte: today,
+          },
+        },
       });
 
       // Métricas de animais
       const totalAnimals = await prisma.animal.count();
       const adoptedAnimals = await prisma.animal.count({
-        where: { status: 'ADOTADO' }
+        where: { status: "ADOTADO" },
       });
       const availableAnimals = await prisma.animal.count({
-        where: { status: 'DISPONIVEL' }
+        where: { status: "DISPONIVEL" },
       });
 
       // Métricas de adoções
       const totalAdoptions = await prisma.adoption.count();
       const pendingAdoptions = await prisma.adoption.count({
-        where: { status: 'PENDENTE' }
+        where: { status: "SOLICITADA" },
       });
       const completedAdoptions = await prisma.adoption.count({
-        where: { status: 'APROVADA' }
+        where: { status: "APROVADA" },
       });
 
       // Métricas de agentes (hoje)
       const agentInteractionsToday = await prisma.agentInteraction.count({
         where: {
           createdAt: {
-            gte: today
-          }
-        }
+            gte: today,
+          },
+        },
       });
 
       const successfulInteractionsToday = await prisma.agentInteraction.count({
         where: {
           createdAt: {
-            gte: today
+            gte: today,
           },
-          success: true
-        }
+          success: true,
+        },
       });
 
       // Métricas de procedimentos (usando appointments como proxy)
@@ -64,22 +63,24 @@ export class SystemAnalyticsService {
       const proceduresToday = await prisma.appointment.count({
         where: {
           createdAt: {
-            gte: today
-          }
-        }
+            gte: today,
+          },
+        },
       });
 
       // Métricas de reclamações
       const totalComplaints = await prisma.complaint.count();
       const openComplaints = await prisma.complaint.count({
-        where: { status: 'ABERTA' }
+        where: { status: "ABERTA" },
       });
 
       // Calcular taxas
-      const adoptionRate = totalAnimals > 0 ? (adoptedAnimals / totalAnimals) * 100 : 0;
-      const agentSuccessRate = agentInteractionsToday > 0 
-        ? (successfulInteractionsToday / agentInteractionsToday) * 100 
-        : 0;
+      const adoptionRate =
+        totalAnimals > 0 ? (adoptedAnimals / totalAnimals) * 100 : 0;
+      const agentSuccessRate =
+        agentInteractionsToday > 0
+          ? (successfulInteractionsToday / agentInteractionsToday) * 100
+          : 0;
       const userGrowthRate = await this.calculateUserGrowthRate();
 
       // Dados para gráficos
@@ -103,22 +104,22 @@ export class SystemAnalyticsService {
           totalProcedures,
           proceduresToday,
           totalComplaints,
-          openComplaints
+          openComplaints,
         },
         rates: {
           adoptionRate: Math.round(adoptionRate * 10) / 10,
           agentSuccessRate: Math.round(agentSuccessRate * 10) / 10,
-          userGrowthRate: Math.round(userGrowthRate * 10) / 10
+          userGrowthRate: Math.round(userGrowthRate * 10) / 10,
         },
         charts: {
           weeklyData,
           agentPerformance,
-          municipalityStats
+          municipalityStats,
         },
-        insights: await this.generateInsights()
+        insights: await this.generateInsights(),
       };
     } catch (error) {
-      console.error('Error generating system analytics:', error);
+      console.error("Error generating system analytics:", error);
       throw error;
     }
   }
@@ -135,24 +136,24 @@ export class SystemAnalyticsService {
       const thisWeekUsers = await prisma.user.count({
         where: {
           createdAt: {
-            gte: lastWeek
-          }
-        }
+            gte: lastWeek,
+          },
+        },
       });
 
       const lastWeekUsers = await prisma.user.count({
         where: {
           createdAt: {
             gte: twoWeeksAgo,
-            lt: lastWeek
-          }
-        }
+            lt: lastWeek,
+          },
+        },
       });
 
       if (lastWeekUsers === 0) return thisWeekUsers > 0 ? 100 : 0;
       return ((thisWeekUsers - lastWeekUsers) / lastWeekUsers) * 100;
     } catch (error) {
-      console.error('Error calculating user growth rate:', error);
+      console.error("Error calculating user growth rate:", error);
       return 0;
     }
   }
@@ -167,7 +168,7 @@ export class SystemAnalyticsService {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
-        
+
         const nextDay = new Date(date);
         nextDay.setDate(nextDay.getDate() + 1);
 
@@ -176,48 +177,48 @@ export class SystemAnalyticsService {
             where: {
               createdAt: {
                 gte: date,
-                lt: nextDay
-              }
-            }
+                lt: nextDay,
+              },
+            },
           }),
           prisma.animal.count({
             where: {
               createdAt: {
                 gte: date,
-                lt: nextDay
-              }
-            }
+                lt: nextDay,
+              },
+            },
           }),
           prisma.agentInteraction.count({
             where: {
               createdAt: {
                 gte: date,
-                lt: nextDay
-              }
-            }
+                lt: nextDay,
+              },
+            },
           }),
           prisma.appointment.count({
             where: {
               createdAt: {
                 gte: date,
-                lt: nextDay
-              }
-            }
-          })
+                lt: nextDay,
+              },
+            },
+          }),
         ]);
 
         weeklyData.push({
-          date: date.toISOString().split('T')[0],
+          date: date.toISOString().split("T")[0],
           users,
           animals,
           interactions,
-          procedures
+          procedures,
         });
       }
 
       return weeklyData;
     } catch (error) {
-      console.error('Error getting weekly data:', error);
+      console.error("Error getting weekly data:", error);
       return [];
     }
   }
@@ -230,21 +231,21 @@ export class SystemAnalyticsService {
 
       const agentMetrics = await prisma.agentMetrics.findMany({
         where: {
-          date: today
-        }
+          date: today,
+        },
       });
 
-      return agentMetrics.map(metric => ({
-        agentId: metric.agentId,
+      return agentMetrics.map((metric) => ({
         agentName: metric.agentName,
         interactions: metric.totalInteractions,
-        successRate: metric.totalInteractions > 0 
-          ? (metric.successfulInteractions / metric.totalInteractions) * 100 
-          : 0,
-        avgResponseTime: metric.avgResponseTimeMs
+        successRate:
+          metric.totalInteractions > 0
+            ? (metric.successfulInteractions / metric.totalInteractions) * 100
+            : 0,
+        avgResponseTime: metric.averageResponseTime,
       }));
     } catch (error) {
-      console.error('Error getting agent performance data:', error);
+      console.error("Error getting agent performance data:", error);
       return [];
     }
   }
@@ -257,21 +258,21 @@ export class SystemAnalyticsService {
           _count: {
             select: {
               users: true,
-              animals: true
-            }
-          }
-        }
+              animals: true,
+            },
+          },
+        },
       });
 
-      return municipalities.map(municipality => ({
+      return municipalities.map((municipality) => ({
         id: municipality.id,
         name: municipality.name,
-        state: 'BR', // Default state since it's not in the schema
+        state: "BR", // Default state since it's not in the schema
         users: municipality._count.users,
-        animals: municipality._count.animals
+        animals: municipality._count.animals,
       }));
     } catch (error) {
-      console.error('Error getting municipality stats:', error);
+      console.error("Error getting municipality stats:", error);
       return [];
     }
   }
@@ -285,17 +286,18 @@ export class SystemAnalyticsService {
       const adoptionRate = await this.calculateAdoptionRate();
       if (adoptionRate > 80) {
         insights.push({
-          type: 'success',
-          title: 'Alta Taxa de Adoção',
+          type: "success",
+          title: "Alta Taxa de Adoção",
           description: `Excelente! ${adoptionRate.toFixed(1)}% dos animais foram adotados.`,
-          action: 'Continue promovendo as adoções através dos canais digitais.'
+          action: "Continue promovendo as adoções através dos canais digitais.",
         });
       } else if (adoptionRate < 50) {
         insights.push({
-          type: 'warning',
-          title: 'Taxa de Adoção Baixa',
+          type: "warning",
+          title: "Taxa de Adoção Baixa",
           description: `Apenas ${adoptionRate.toFixed(1)}% dos animais foram adotados.`,
-          action: 'Considere campanhas de conscientização e melhorias no processo.'
+          action:
+            "Considere campanhas de conscientização e melhorias no processo.",
         });
       }
 
@@ -303,10 +305,11 @@ export class SystemAnalyticsService {
       const agentSuccessRate = await this.calculateAgentSuccessRate();
       if (agentSuccessRate > 90) {
         insights.push({
-          type: 'success',
-          title: 'Agentes IA Performando Bem',
+          type: "success",
+          title: "Agentes IA Performando Bem",
           description: `Taxa de sucesso de ${agentSuccessRate.toFixed(1)}% nas interações.`,
-          action: 'Considere expandir o uso dos agentes para mais funcionalidades.'
+          action:
+            "Considere expandir o uso dos agentes para mais funcionalidades.",
         });
       }
 
@@ -314,16 +317,16 @@ export class SystemAnalyticsService {
       const userGrowthRate = await this.calculateUserGrowthRate();
       if (userGrowthRate > 20) {
         insights.push({
-          type: 'info',
-          title: 'Crescimento Acelerado',
+          type: "info",
+          title: "Crescimento Acelerado",
           description: `Crescimento de ${userGrowthRate.toFixed(1)}% em novos usuários esta semana.`,
-          action: 'Prepare a infraestrutura para suportar o crescimento.'
+          action: "Prepare a infraestrutura para suportar o crescimento.",
         });
       }
 
       return insights;
     } catch (error) {
-      console.error('Error generating insights:', error);
+      console.error("Error generating insights:", error);
       return [];
     }
   }
@@ -333,12 +336,12 @@ export class SystemAnalyticsService {
     try {
       const totalAnimals = await prisma.animal.count();
       const adoptedAnimals = await prisma.animal.count({
-        where: { status: 'ADOTADO' }
+        where: { status: "ADOTADO" },
       });
-      
+
       return totalAnimals > 0 ? (adoptedAnimals / totalAnimals) * 100 : 0;
     } catch (error) {
-      console.error('Error calculating adoption rate:', error);
+      console.error("Error calculating adoption rate:", error);
       return 0;
     }
   }
@@ -352,23 +355,25 @@ export class SystemAnalyticsService {
       const totalInteractions = await prisma.agentInteraction.count({
         where: {
           createdAt: {
-            gte: today
-          }
-        }
+            gte: today,
+          },
+        },
       });
 
       const successfulInteractions = await prisma.agentInteraction.count({
         where: {
           createdAt: {
-            gte: today
+            gte: today,
           },
-          success: true
-        }
+          success: true,
+        },
       });
 
-      return totalInteractions > 0 ? (successfulInteractions / totalInteractions) * 100 : 0;
+      return totalInteractions > 0
+        ? (successfulInteractions / totalInteractions) * 100
+        : 0;
     } catch (error) {
-      console.error('Error calculating agent success rate:', error);
+      console.error("Error calculating agent success rate:", error);
       return 0;
     }
   }

@@ -66,18 +66,23 @@ export class NotificationService {
           break;
       }
 
+      const prioridadeMap: Record<string, 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'> = {
+        'LOW': 'BAIXA',
+        'MEDIUM': 'MEDIA',
+        'HIGH': 'ALTA',
+        'URGENT': 'URGENTE'
+      };
+
       const notification = await prisma.notification.create({
         data: {
-          title,
-          message,
-          type: 'ADOPTION',
-          category: 'ADOCAO',
-          priority,
+          titulo: title,
+          conteudo: message,
+          tipo: 'EMAIL',
+          categoria: 'ADOCAO',
+          prioridade: prioridadeMap[priority],
           userId: targetUserId,
-          animalId: adoption.animalId,
-          adoptionId: adoptionId,
-          actionType,
-          actionUrl
+          relacionadoTipo: 'ADOPTION',
+          relacionadoId: adoptionId
         }
       });
 
@@ -150,18 +155,23 @@ export class NotificationService {
           break;
       }
 
+      const prioridadeMap: Record<string, 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'> = {
+        'LOW': 'BAIXA',
+        'MEDIUM': 'MEDIA',
+        'HIGH': 'ALTA',
+        'URGENT': 'URGENTE'
+      };
+
       const notification = await prisma.notification.create({
         data: {
-          title,
-          message,
-          type: 'TASK',
-          category: 'SISTEMA',
-          priority,
+          titulo: title,
+          conteudo: message,
+          tipo: 'EMAIL',
+          categoria: 'SISTEMA',
+          prioridade: prioridadeMap[priority],
           userId: targetUserId,
-          taskId: taskId,
-          animalId: task.animalId,
-          actionType,
-          actionUrl
+          relacionadoTipo: 'TASK',
+          relacionadoId: taskId
         }
       });
 
@@ -183,16 +193,21 @@ export class NotificationService {
     actionUrl?: string
   ) {
     try {
+      const prioridadeMap: Record<string, 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'> = {
+        'LOW': 'BAIXA',
+        'MEDIUM': 'MEDIA',
+        'HIGH': 'ALTA',
+        'URGENT': 'URGENTE'
+      };
+
       const notification = await prisma.notification.create({
         data: {
-          title,
-          message,
-          type: 'SYSTEM',
-          category: 'SISTEMA',
-          priority,
-          userId: targetUserId,
-          actionType: actionUrl ? 'REDIRECT' : undefined,
-          actionUrl
+          titulo: title,
+          conteudo: message,
+          tipo: 'EMAIL',
+          categoria: 'SISTEMA',
+          prioridade: prioridadeMap[priority],
+          userId: targetUserId
         }
       });
 
@@ -253,17 +268,23 @@ export class NotificationService {
           break;
       }
 
+      const prioridadeMap: Record<string, 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'> = {
+        'LOW': 'BAIXA',
+        'MEDIUM': 'MEDIA',
+        'HIGH': 'ALTA',
+        'URGENT': 'URGENTE'
+      };
+
       const notification = await prisma.notification.create({
         data: {
-          title,
-          message,
-          type: 'INFO',
-          category: 'VETERINARIO',
-          priority,
+          titulo: title,
+          conteudo: message,
+          tipo: 'EMAIL',
+          categoria: 'VETERINARIO',
+          prioridade: prioridadeMap[priority],
           userId: targetUserId,
-          animalId: animalId,
-          actionType,
-          actionUrl
+          relacionadoTipo: 'ANIMAL',
+          relacionadoId: animalId
         }
       });
 
@@ -290,37 +311,26 @@ export class NotificationService {
       const { limit = 10, unreadOnly = false, category, priority } = options;
 
       const where: any = { userId };
-      
+
       if (unreadOnly) {
-        where.status = 'UNREAD';
+        where.visualizada = false;
       }
-      
+
       if (category) {
-        where.category = category;
+        where.categoria = category;
       }
-      
+
       if (priority) {
-        where.priority = priority;
+        where.prioridade = priority;
       }
 
       const notifications = await prisma.notification.findMany({
         where,
         take: limit,
         orderBy: [
-          { priority: 'desc' },
+          { prioridade: 'desc' },
           { createdAt: 'desc' }
-        ],
-        include: {
-          animal: {
-            select: { id: true, name: true, species: true }
-          },
-          task: {
-            select: { id: true, title: true, status: true }
-          },
-          adoption: {
-            select: { id: true, status: true }
-          }
-        }
+        ]
       });
 
       return notifications;

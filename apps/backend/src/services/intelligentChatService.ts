@@ -178,7 +178,7 @@ export class IntelligentChatService {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: any = await response.json();
         console.log('✅ Contexto semântico obtido:', data.semanticContext ? 'Sim' : 'Não');
         return data.semanticContext || data.pineconeResults || data.context;
       }
@@ -262,7 +262,7 @@ ${JSON.stringify(context, null, 2)}`
         throw new Error(`OpenAI API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       const result = JSON.parse(data.choices[0].message.content);
       
       console.log('✅ Roteamento inteligente:', result);
@@ -373,7 +373,7 @@ ${JSON.stringify(context, null, 2)}`
         throw new Error(`N8N workflow error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       console.log('✅ N8N Response:', data);
 
       return {
@@ -478,7 +478,7 @@ ${JSON.stringify(context, null, 2)}`
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: any = await response.json();
         return data.pineconeResults || data.matches;
       }
 

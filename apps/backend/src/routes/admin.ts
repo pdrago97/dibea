@@ -1,16 +1,16 @@
-import express from 'express';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
-import { authenticate, authorize } from '../middleware/auth';
+import express from "express";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+import { authenticate, authorize } from "../middleware/auth";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Middleware para verificar se é admin
-const requireAdmin = authorize('ADMIN');
+const requireAdmin = authorize("ADMIN");
 
 // GET /api/v1/admin/users - Listar todos os usuários
-router.get('/users', authenticate, requireAdmin, async (req, res) => {
+router.get("/users", authenticate, requireAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -19,50 +19,50 @@ router.get('/users', authenticate, requireAdmin, async (req, res) => {
         email: true,
         phone: true,
         role: true,
-        isActive: true,
+        active: true,
         createdAt: true,
         updatedAt: true,
         municipality: {
           select: {
             id: true,
-            name: true
-          }
-        }
+            name: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: "desc",
+      },
     });
 
-    const formattedUsers = users.map(user => ({
+    const formattedUsers = users.map((user) => ({
       id: user.id,
       name: user.name,
       email: user.email,
       phone: user.phone,
       role: user.role,
-      status: user.isActive ? 'active' : 'inactive',
-      active: user.isActive,
-      createdAt: user.createdAt.toISOString().split('T')[0],
+      status: user.active ? "active" : "inactive",
+      active: user.active,
+      createdAt: user.createdAt.toISOString().split("T")[0],
       lastLogin: user.updatedAt.toISOString(),
-      municipality: user.municipality || null
+      municipality: user.municipality || null,
     }));
 
     res.json({
       success: true,
       users: formattedUsers,
-      total: users.length
+      total: users.length,
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error("Error fetching users:", error);
     res.status(500).json({
       success: false,
-      message: 'Erro ao buscar usuários'
+      message: "Erro ao buscar usuários",
     });
   }
 });
 
 // POST /api/v1/admin/users - Criar novo usuário
-router.post('/users', authenticate, requireAdmin, async (req, res) => {
+router.post("/users", authenticate, requireAdmin, async (req, res) => {
   try {
     const { name, email, password, phone, role } = req.body;
 
@@ -70,19 +70,19 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
     if (!name || !email || !password || !role) {
       return res.status(400).json({
         success: false,
-        message: 'Nome, email, senha e role são obrigatórios'
+        message: "Nome, email, senha e role são obrigatórios",
       });
     }
 
     // Verificar se email já existe
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'Email já está em uso'
+        message: "Email já está em uso",
       });
     }
 
@@ -100,8 +100,8 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
         passwordHash: hashedPassword,
         phone: phone || null,
         role: role as any,
-        isActive: true,
-        municipalityId: defaultMunicipality?.id
+        active: true,
+        municipalityId: defaultMunicipality?.id,
       },
       select: {
         id: true,
@@ -109,53 +109,53 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
         email: true,
         phone: true,
         role: true,
-        isActive: true,
-        createdAt: true
-      }
+        active: true,
+        createdAt: true,
+      },
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Usuário criado com sucesso',
-      user: newUser
+      message: "Usuário criado com sucesso",
+      user: newUser,
     });
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error("Error creating user:", error);
     return res.status(500).json({
       success: false,
-      message: 'Erro ao criar usuário'
+      message: "Erro ao criar usuário",
     });
   }
 });
 
 // PUT /api/v1/admin/users/:id - Atualizar usuário
-router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
+router.put("/users/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, role, isActive } = req.body;
+    const { name, email, phone, role, active } = req.body;
 
     // Verificar se usuário existe
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingUser) {
       return res.status(404).json({
         success: false,
-        message: 'Usuário não encontrado'
+        message: "Usuário não encontrado",
       });
     }
 
     // Verificar se email já está em uso por outro usuário
     if (email && email !== existingUser.email) {
       const emailInUse = await prisma.user.findUnique({
-        where: { email }
+        where: { email },
       });
 
       if (emailInUse) {
         return res.status(400).json({
           success: false,
-          message: 'Email já está em uso'
+          message: "Email já está em uso",
         });
       }
     }
@@ -168,7 +168,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
         ...(email && { email }),
         ...(phone !== undefined && { phone }),
         ...(role && { role: role as any }),
-        ...(isActive !== undefined && { isActive })
+        ...(active !== undefined && { active }),
       },
       select: {
         id: true,
@@ -176,63 +176,63 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
         email: true,
         phone: true,
         role: true,
-        isActive: true,
-        updatedAt: true
-      }
+        active: true,
+        updatedAt: true,
+      },
     });
 
     return res.json({
       success: true,
-      message: 'Usuário atualizado com sucesso',
-      user: updatedUser
+      message: "Usuário atualizado com sucesso",
+      user: updatedUser,
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    console.error("Error updating user:", error);
     return res.status(500).json({
       success: false,
-      message: 'Erro ao atualizar usuário'
+      message: "Erro ao atualizar usuário",
     });
   }
 });
 
 // DELETE /api/v1/admin/users/:id - Desativar usuário
-router.delete('/users/:id', authenticate, requireAdmin, async (req, res) => {
+router.delete("/users/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
     // Verificar se usuário existe
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingUser) {
       return res.status(404).json({
         success: false,
-        message: 'Usuário não encontrado'
+        message: "Usuário não encontrado",
       });
     }
 
     // Desativar usuário (soft delete)
     await prisma.user.update({
       where: { id },
-      data: { isActive: false }
+      data: { active: false },
     });
 
     return res.json({
       success: true,
-      message: 'Usuário desativado com sucesso'
+      message: "Usuário desativado com sucesso",
     });
   } catch (error) {
-    console.error('Error deactivating user:', error);
+    console.error("Error deactivating user:", error);
     return res.status(500).json({
       success: false,
-      message: 'Erro ao desativar usuário'
+      message: "Erro ao desativar usuário",
     });
   }
 });
 
 // GET /api/v1/admin/stats - Estatísticas do sistema
-router.get('/stats', authenticate, requireAdmin, async (req, res) => {
+router.get("/stats", authenticate, requireAdmin, async (req, res) => {
   try {
     const [
       totalUsers,
@@ -240,18 +240,19 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       totalMunicipalities,
       totalAdoptions,
       activeUsers,
-      availableAnimals
+      availableAnimals,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.animal.count(),
       prisma.municipality.count(),
       prisma.adoption.count(),
-      prisma.user.count({ where: { isActive: true } }),
-      prisma.animal.count({ where: { status: 'DISPONIVEL' } })
+      prisma.user.count({ where: { active: true } }),
+      prisma.animal.count({ where: { status: "DISPONIVEL" } }),
     ]);
 
     // Calcular taxa de adoção
-    const adoptionRate = totalAnimals > 0 ? (totalAdoptions / totalAnimals) * 100 : 0;
+    const adoptionRate =
+      totalAnimals > 0 ? (totalAdoptions / totalAnimals) * 100 : 0;
 
     res.json({
       success: true,
@@ -263,85 +264,87 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
         activeUsers,
         availableAnimals,
         adoptionRate: Math.round(adoptionRate * 100) / 100,
-        systemHealth: 'healthy'
-      }
+        systemHealth: "healthy",
+      },
     });
   } catch (error) {
-    console.error('Error fetching admin stats:', error);
+    console.error("Error fetching admin stats:", error);
     res.status(500).json({
       success: false,
-      message: 'Erro ao buscar estatísticas'
+      message: "Erro ao buscar estatísticas",
     });
   }
 });
 
 // GET /api/v1/admin/activity - Atividade recente
-router.get('/activity', authenticate, requireAdmin, async (req, res) => {
+router.get("/activity", authenticate, requireAdmin, async (req, res) => {
   try {
     // Buscar atividades recentes (últimos usuários, animais, etc.)
     const [recentUsers, recentAnimals] = await Promise.all([
       prisma.user.findMany({
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           name: true,
           email: true,
           role: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       }),
       prisma.animal.findMany({
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           name: true,
           species: true,
-          createdAt: true
-        }
-      })
+          createdAt: true,
+        },
+      }),
     ]);
 
     const activities = [
-      ...recentUsers.map(user => ({
+      ...recentUsers.map((user) => ({
         id: `user-${user.id}`,
-        type: 'user_registration',
+        type: "user_registration",
         message: `Novo usuário registrado: ${user.name}`,
         time: formatTimeAgo(user.createdAt),
-        status: 'success'
+        status: "success",
       })),
-      ...recentAnimals.map(animal => ({
+      ...recentAnimals.map((animal) => ({
         id: `animal-${animal.id}`,
-        type: 'animal_added',
+        type: "animal_added",
         message: `Animal adicionado: ${animal.name} (${animal.species})`,
         time: formatTimeAgo(animal.createdAt),
-        status: 'info'
-      }))
-    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 10);
+        status: "info",
+      })),
+    ]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 10);
 
     res.json({
       success: true,
-      activities
+      activities,
     });
   } catch (error) {
-    console.error('Error fetching activity:', error);
+    console.error("Error fetching activity:", error);
     res.status(500).json({
       success: false,
-      message: 'Erro ao buscar atividades'
+      message: "Erro ao buscar atividades",
     });
   }
 });
 
 // GET /api/v1/admin/clinics - Listar todas as clínicas
-router.get('/clinics', authenticate, requireAdmin, async (req, res) => {
+router.get("/clinics", authenticate, requireAdmin, async (req, res) => {
   try {
     // TODO: Implement when Clinic model is ready in Prisma
     return res.json({
       success: true,
-      clinics: []
+      clinics: [],
     });
-    
+
     /* REMOVE MOCK DATA
     const mockClinics = [
       {
@@ -396,67 +399,80 @@ router.get('/clinics', authenticate, requireAdmin, async (req, res) => {
     ];
     */
   } catch (error) {
-    console.error('Error fetching clinics:', error);
+    console.error("Error fetching clinics:", error);
     return res.status(500).json({
       success: false,
-      message: 'Erro ao buscar clínicas'
+      message: "Erro ao buscar clínicas",
     });
   }
 });
 
 // POST /api/v1/admin/clinics/:id/approve - Aprovar clínica
-router.post('/clinics/:id/approve', authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
+router.post(
+  "/clinics/:id/approve",
+  authenticate,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
 
-    // TODO: Implement clinic approval logic when model is ready
-    res.json({
-      success: true,
-      message: 'Clínica aprovada com sucesso'
-    });
-  } catch (error) {
-    console.error('Error approving clinic:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro ao aprovar clínica'
-    });
-  }
-});
+      // TODO: Implement clinic approval logic when model is ready
+      res.json({
+        success: true,
+        message: "Clínica aprovada com sucesso",
+      });
+    } catch (error) {
+      console.error("Error approving clinic:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao aprovar clínica",
+      });
+    }
+  },
+);
 
 // POST /api/v1/admin/clinics/:id/reject - Rejeitar clínica
-router.post('/clinics/:id/reject', authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body;
+router.post(
+  "/clinics/:id/reject",
+  authenticate,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
 
-    // TODO: Implement clinic rejection logic when model is ready
-    res.json({
-      success: true,
-      message: 'Clínica rejeitada'
-    });
-  } catch (error) {
-    console.error('Error rejecting clinic:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro ao rejeitar clínica'
-    });
-  }
-});
+      // TODO: Implement clinic rejection logic when model is ready
+      res.json({
+        success: true,
+        message: "Clínica rejeitada",
+      });
+    } catch (error) {
+      console.error("Error rejecting clinic:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao rejeitar clínica",
+      });
+    }
+  },
+);
 
 // Função auxiliar para formatar tempo
 function formatTimeAgo(date: Date): string {
   const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-  
-  if (diffInMinutes < 1) return 'agora';
+  const diffInMinutes = Math.floor(
+    (now.getTime() - date.getTime()) / (1000 * 60),
+  );
+
+  if (diffInMinutes < 1) return "agora";
   if (diffInMinutes < 60) return `${diffInMinutes} min atrás`;
-  
+
   const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} hora${diffInHours > 1 ? 's' : ''} atrás`;
-  
+  if (diffInHours < 24)
+    return `${diffInHours} hora${diffInHours > 1 ? "s" : ""} atrás`;
+
   const diffInDays = Math.floor(diffInHours / 24);
-  return `${diffInDays} dia${diffInDays > 1 ? 's' : ''} atrás`;
+  return `${diffInDays} dia${diffInDays > 1 ? "s" : ""} atrás`;
 }
 
 export default router;

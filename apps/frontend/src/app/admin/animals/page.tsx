@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
 import {
   Plus,
   Search,
@@ -23,25 +22,25 @@ import {
 
 interface Animal {
   id: string;
-  nome: string;
-  especie: "CANINO" | "FELINO" | "OUTROS";
-  raca: string | null;
-  sexo: "MACHO" | "FEMEA";
-  porte: "PEQUENO" | "MEDIO" | "GRANDE";
-  data_nascimento: string | null;
-  peso: number | null;
-  cor: string | null;
-  temperamento: string | null;
+  name: string;
+  species: "CANINO" | "FELINO" | "OUTROS";
+  breed: string | null;
+  sex: "MACHO" | "FEMEA";
+  size: "PEQUENO" | "MEDIO" | "GRANDE";
+  birthDate: string | null;
+  weight: number | null;
+  color: string | null;
+  temperament: string | null;
   status: "DISPONIVEL" | "ADOTADO" | "EM_TRATAMENTO" | "OBITO" | "PERDIDO";
-  municipality_id: string;
-  created_at: string;
-  municipios: {
-    nome: string;
-  };
-  fotos_animal: {
+  municipalityId: string;
+  createdAt: string;
+  municipality?: {
+    name: string;
+  } | null;
+  photos: {
     id: string;
     url: string;
-    principal: boolean;
+    isPrimary: boolean;
   }[];
 }
 
@@ -67,32 +66,35 @@ export default function AnimalsPageV2() {
 
   const fetchStats = async () => {
     try {
-      const [
-        { count: total },
-        { count: disponivel },
-        { count: adotado },
-        { count: tratamento },
-      ] = await Promise.all([
-        supabase.from("animais").select("*", { count: "exact", head: true }),
-        supabase
-          .from("animais")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "DISPONIVEL"),
-        supabase
-          .from("animais")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "ADOTADO"),
-        supabase
-          .from("animais")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "EM_TRATAMENTO"),
+      const token = localStorage.getItem("token");
+
+      const [totalRes, disponivelRes, adotadoRes, tratamentoRes] = await Promise.all([
+        fetch("http://localhost:3000/api/v1/animals?limit=1", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://localhost:3000/api/v1/animals?status=DISPONIVEL&limit=1", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://localhost:3000/api/v1/animals?status=ADOTADO&limit=1", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://localhost:3000/api/v1/animals?status=EM_TRATAMENTO&limit=1", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      const [total, disponivel, adotado, tratamento] = await Promise.all([
+        totalRes.json(),
+        disponivelRes.json(),
+        adotadoRes.json(),
+        tratamentoRes.json(),
       ]);
 
       setStats({
-        total: total || 0,
-        disponivel: disponivel || 0,
-        adotado: adotado || 0,
-        tratamento: tratamento || 0,
+        total: total.pagination?.total || 0,
+        disponivel: disponivel.pagination?.total || 0,
+        adotado: adotado.pagination?.total || 0,
+        tratamento: tratamento.pagination?.total || 0,
       });
     } catch (err) {
       console.error("Erro ao buscar estatísticas:", err);
@@ -102,25 +104,24 @@ export default function AnimalsPageV2() {
   const fetchAnimals = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem("token");
 
-      let query = supabase
-        .from("animais")
-        .select(
-          `
-          *,
-          municipios (nome),
-          fotos_animal (id, url, principal, ordem)
-        `,
-        )
-        .order("created_at", { ascending: false });
-
+      let url = "http://localhost:3000/api/v1/animals?limit=100";
       if (statusFilter && statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        url += `&status=${statusFilter}`;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setAnimals(data || []);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) throw new Error("Erro ao buscar animais");
+
+      const result = await response.json();
+      setAnimals(result.data || []);
     } catch (err: any) {
       console.error("Erro ao buscar animais:", err);
     } finally {
@@ -130,8 +131,8 @@ export default function AnimalsPageV2() {
 
   const filteredAnimals = animals.filter(
     (animal) =>
-      animal.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (animal.raca?.toLowerCase() || "").includes(searchTerm.toLowerCase()),
+      animal.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (animal.breed?.toLowerCase() || "").includes(searchTerm.toLowerCase()),
   );
 
   const calculateAge = (birthDate?: string | null) => {
@@ -147,11 +148,11 @@ export default function AnimalsPageV2() {
   };
 
   const getPrimaryPhoto = (animal: Animal) => {
-    const primary = animal.fotos_animal?.find((f) => f.principal);
+    const primary = animal.photos?.find((f) => f.isPrimary);
     if (primary) return primary.url;
-    const first = animal.fotos_animal?.[0];
+    const first = animal.photos?.[0];
     if (first) return first.url;
-    return animal.especie === "CANINO"
+    return animal.species === "CANINO"
       ? "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=300&fit=crop"
       : "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&h=300&fit=crop";
   };
@@ -210,7 +211,7 @@ export default function AnimalsPageV2() {
   const AnimalCard = ({ animal }: { animal: Animal }) => {
     const statusConfig = getStatusConfig(animal.status);
     const StatusIcon = statusConfig.icon;
-    const age = calculateAge(animal.data_nascimento);
+    const age = calculateAge(animal.birthDate);
 
     return (
       <Card className="group overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all">
@@ -218,7 +219,7 @@ export default function AnimalsPageV2() {
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
           <img
             src={getPrimaryPhoto(animal)}
-            alt={animal.nome}
+            alt={animal.name}
             className="w-full h-full object-cover"
           />
 
@@ -236,7 +237,7 @@ export default function AnimalsPageV2() {
           <div className="absolute top-3 right-3">
             <div className="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-md border border-gray-200">
               <span className="text-sm font-medium text-gray-700">
-                {animal.especie === "CANINO" ? "🐕 Cão" : "🐈 Gato"}
+                {animal.species === "CANINO" ? "🐕 Cão" : "🐈 Gato"}
               </span>
             </div>
           </div>
@@ -247,12 +248,12 @@ export default function AnimalsPageV2() {
           {/* Header */}
           <div className="mb-3">
             <h3 className="text-base font-semibold text-gray-900 mb-1">
-              {animal.nome}
+              {animal.name}
             </h3>
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>{animal.raca || "SRD"}</span>
+              <span>{animal.breed || "SRD"}</span>
               <span>•</span>
-              <span>{animal.sexo === "MACHO" ? "Macho" : "Fêmea"}</span>
+              <span>{animal.sex === "MACHO" ? "Macho" : "Fêmea"}</span>
               {age && (
                 <>
                   <span>•</span>
@@ -266,20 +267,22 @@ export default function AnimalsPageV2() {
           <div className="flex items-center gap-3 mb-3 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Activity className="w-4 h-4" />
-              <span>{animal.porte}</span>
+              <span>{animal.size}</span>
             </div>
-            {animal.peso && (
+            {animal.weight && (
               <div className="flex items-center gap-1">
-                <span>{animal.peso}kg</span>
+                <span>{animal.weight}kg</span>
               </div>
             )}
           </div>
 
           {/* Location */}
-          <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-4">
-            <MapPin className="w-4 h-4" />
-            <span className="truncate">{animal.municipios.nome}</span>
-          </div>
+          {animal.municipality?.name && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-4">
+              <MapPin className="w-4 h-4" />
+              <span className="truncate">{animal.municipality.name}</span>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2">

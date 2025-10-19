@@ -75,11 +75,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       badge: null,
       enabled: true
     },
-    { 
-      name: 'Animais', 
-      href: '/admin/animals', 
+    {
+      name: 'Animais',
+      href: '/admin/animals',
       icon: PawPrint,
-      badge: '4',
+      badge: null,
       enabled: true
     },
     { 

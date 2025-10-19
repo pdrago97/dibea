@@ -49,7 +49,7 @@ export const authenticate = async (
       },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.active) {
       return res.status(401).json({
         success: false,
         error: "User not found or inactive",

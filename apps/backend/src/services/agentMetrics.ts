@@ -3,16 +3,13 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export interface AgentInteractionData {
-  agentId: string;
   agentName: string;
   userId?: string;
-  sessionId?: string;
-  inputMessage: string;
-  outputMessage?: string;
+  userInput: string;
+  agentResponse?: string;
   success: boolean;
   responseTimeMs: number;
   errorMessage?: string;
-  metadata?: any;
 }
 
 export class AgentMetricsService {
@@ -23,21 +20,18 @@ export class AgentMetricsService {
       // Registrar a interação
       const interaction = await prisma.agentInteraction.create({
         data: {
-          agentId: data.agentId,
           agentName: data.agentName,
           userId: data.userId,
-          sessionId: data.sessionId,
-          inputMessage: data.inputMessage,
-          outputMessage: data.outputMessage,
+          userInput: data.userInput,
+          agentResponse: data.agentResponse || '',
           success: data.success,
           responseTimeMs: data.responseTimeMs,
-          errorMessage: data.errorMessage,
-          metadata: data.metadata
+          errorMessage: data.errorMessage
         }
       });
 
       // Atualizar métricas diárias
-      await this.updateDailyMetrics(data.agentId, data.agentName);
+      await this.updateDailyMetrics(data.agentName);
 
       return interaction;
     } catch (error) {
@@ -47,7 +41,7 @@ export class AgentMetricsService {
   }
 
   // Atualizar métricas diárias do agente
-  static async updateDailyMetrics(agentId: string, agentName: string) {
+  static async updateDailyMetrics(agentName: string) {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -55,7 +49,7 @@ export class AgentMetricsService {
       // Buscar interações do dia
       const todayInteractions = await prisma.agentInteraction.findMany({
         where: {
-          agentId,
+          agentName,
           createdAt: {
             gte: today
           }
@@ -64,40 +58,29 @@ export class AgentMetricsService {
 
       const totalInteractions = todayInteractions.length;
       const successfulInteractions = todayInteractions.filter(i => i.success).length;
-      const failedInteractions = totalInteractions - successfulInteractions;
-      const avgResponseTime = totalInteractions > 0 
-        ? todayInteractions.reduce((sum, i) => sum + i.responseTimeMs, 0) / totalInteractions 
+      const avgResponseTime = totalInteractions > 0
+        ? todayInteractions.reduce((sum, i) => sum + i.responseTimeMs, 0) / totalInteractions
         : 0;
-      const lastActivity = todayInteractions.length > 0 
-        ? todayInteractions[todayInteractions.length - 1].createdAt 
-        : null;
 
       // Upsert métricas diárias
       await prisma.agentMetrics.upsert({
         where: {
-          agentId_date: {
-            agentId,
+          agentName_date: {
+            agentName,
             date: today
           }
         },
         update: {
           totalInteractions,
           successfulInteractions,
-          failedInteractions,
-          avgResponseTimeMs: avgResponseTime,
-          lastActivity,
-          status: 'online'
+          averageResponseTime: avgResponseTime
         },
         create: {
-          agentId,
           agentName,
           date: today,
           totalInteractions,
           successfulInteractions,
-          failedInteractions,
-          avgResponseTimeMs: avgResponseTime,
-          lastActivity,
-          status: 'online'
+          averageResponseTime: avgResponseTime
         }
       });
 
@@ -164,14 +147,13 @@ export class AgentMetricsService {
 
       // Agrupar por agente
       const agentGroups = todayInteractions.reduce((acc, interaction) => {
-        if (!acc[interaction.agentId]) {
-          acc[interaction.agentId] = {
-            agentId: interaction.agentId,
+        if (!acc[interaction.agentName]) {
+          acc[interaction.agentName] = {
             agentName: interaction.agentName,
             interactions: []
           };
         }
-        acc[interaction.agentId].interactions.push(interaction);
+        acc[interaction.agentName].interactions.push(interaction);
         return acc;
       }, {} as any);
 
@@ -270,20 +252,14 @@ export class AgentMetricsService {
 
             await prisma.agentInteraction.create({
               data: {
-                agentId: agent.id,
                 agentName: agent.name,
                 userId: user.id,
-                sessionId: `session-${Date.now()}-${Math.random()}`,
-                inputMessage: query,
-                outputMessage: success ? `Resposta para: ${query}` : null,
+                userInput: query,
+                agentResponse: success ? `Resposta para: ${query}` : '',
                 success,
                 responseTimeMs: responseTime,
                 errorMessage: success ? null : 'Erro simulado',
-                createdAt: interactionDate,
-                metadata: {
-                  simulated: true,
-                  day: day
-                }
+                createdAt: interactionDate
               }
             });
           }
@@ -311,7 +287,7 @@ export class AgentMetricsService {
 
       const dayInteractions = await prisma.agentInteraction.findMany({
         where: {
-          agentId,
+          agentName,
           createdAt: {
             gte: startOfDay,
             lte: endOfDay
@@ -321,39 +297,28 @@ export class AgentMetricsService {
 
       const totalInteractions = dayInteractions.length;
       const successfulInteractions = dayInteractions.filter(i => i.success).length;
-      const failedInteractions = totalInteractions - successfulInteractions;
-      const avgResponseTime = totalInteractions > 0 
-        ? dayInteractions.reduce((sum, i) => sum + i.responseTimeMs, 0) / totalInteractions 
+      const avgResponseTime = totalInteractions > 0
+        ? dayInteractions.reduce((sum, i) => sum + i.responseTimeMs, 0) / totalInteractions
         : 0;
-      const lastActivity = dayInteractions.length > 0 
-        ? dayInteractions[dayInteractions.length - 1].createdAt 
-        : null;
 
       await prisma.agentMetrics.upsert({
         where: {
-          agentId_date: {
-            agentId,
+          agentName_date: {
+            agentName,
             date: startOfDay
           }
         },
         update: {
           totalInteractions,
           successfulInteractions,
-          failedInteractions,
-          avgResponseTimeMs: avgResponseTime,
-          lastActivity,
-          status: 'online'
+          averageResponseTime: avgResponseTime
         },
         create: {
-          agentId,
           agentName,
           date: startOfDay,
           totalInteractions,
           successfulInteractions,
-          failedInteractions,
-          avgResponseTimeMs: avgResponseTime,
-          lastActivity,
-          status: 'online'
+          averageResponseTime: avgResponseTime
         }
       });
 

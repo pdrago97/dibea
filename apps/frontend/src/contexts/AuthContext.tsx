@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export type UserRole = 'ADMIN' | 'FUNCIONARIO' | 'VETERINARIO' | 'CIDADAO';
+export type UserRole = "ADMIN" | "FUNCIONARIO" | "VETERINARIO" | "CIDADAO";
 
 export interface User {
   id: string;
@@ -43,9 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkAuthStatus = async () => {
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
       if (!token || !userData) {
         setIsLoading(false);
@@ -57,14 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = JSON.parse(userData);
         setUser(user);
       } catch (error) {
-        console.error('Erro ao parsear dados do usuário:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        console.error("Erro ao parsear dados do usuário:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
       }
     } catch (error) {
-      console.error('Erro ao verificar autenticação:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      console.error("Erro ao verificar autenticação:", error);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
     } finally {
       setIsLoading(false);
     }
@@ -72,42 +77,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('🔐 Attempting login for:', email);
+      console.log("🔐 Attempting login for:", email);
 
       // Real authentication via API
-      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      const response = await fetch("http://localhost:3000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      console.log('📡 Response status:', response.status, response.statusText);
+      console.log("📡 Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Login failed:', response.statusText, errorData);
+        console.error("❌ Login failed:", response.statusText, errorData);
         return false;
       }
 
       const data = await response.json();
-      console.log('✅ Login response:', data);
+      console.log("✅ Login response:", data);
 
       if (data.success && data.token && data.user) {
-        console.log('💾 Saving to localStorage and cookies...');
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log("💾 Saving to localStorage and cookies...");
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
 
-        // Salvar token em cookie para o middleware
-        document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          // Salvar token em cookie para o middleware
+          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        }
 
         setUser(data.user);
-        console.log('🎉 Login successful!');
+        console.log("🎉 Login successful!");
         return true;
       }
 
-      console.warn('⚠️ Login response missing required fields:', data);
+      console.warn("⚠️ Login response missing required fields:", data);
       return false;
-      
+
       /* REMOVED MOCK AUTH
       const mockUsers = {
         'admin@dibea.com': {
@@ -158,34 +165,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       */
       return false;
     } catch (error) {
-      console.error('💥 Erro no login:', error);
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('🌐 Erro de rede - verifique se o backend está rodando em http://localhost:3000');
+      console.error("💥 Erro no login:", error);
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        console.error(
+          "🌐 Erro de rede - verifique se o backend está rodando em http://localhost:3000",
+        );
       }
       return false;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
 
-    // Remover cookie
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      // Remover cookie
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
 
     setUser(null);
-    router.push('/auth/login');
+    router.push("/auth/login");
   };
 
   const hasRole = (roles: UserRole | UserRole[]): boolean => {
-    console.log('[hasRole] Called with:', { roles, userRole: user?.role, user: user });
+    console.log("[hasRole] Called with:", {
+      roles,
+      userRole: user?.role,
+      user: user,
+    });
     if (!user) {
-      console.log('[hasRole] No user, returning false');
+      console.log("[hasRole] No user, returning false");
       return false;
     }
     const roleArray = Array.isArray(roles) ? roles : [roles];
     const result = roleArray.includes(user.role);
-    console.log('[hasRole] Result:', { roleArray, userRole: user.role, includes: result });
+    console.log("[hasRole] Result:", {
+      roleArray,
+      userRole: user.role,
+      includes: result,
+    });
     return result;
   };
 
@@ -193,37 +212,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return false;
 
     const permissions: Record<UserRole, string[]> = {
-      ADMIN: ['*'], // Admin pode acessar tudo
+      ADMIN: ["*"], // Admin pode acessar tudo
       FUNCIONARIO: [
-        'animals.*',
-        'adoptions.*',
-        'notifications.*',
-        'tasks.*',
-        'reports.basic'
+        "animals.*",
+        "adoptions.*",
+        "notifications.*",
+        "tasks.*",
+        "reports.basic",
       ],
       VETERINARIO: [
-        'animals.read',
-        'animals.medical',
-        'medical-records.*',
-        'notifications.read',
-        'reports.medical'
+        "animals.read",
+        "animals.medical",
+        "medical-records.*",
+        "notifications.read",
+        "reports.medical",
       ],
       CIDADAO: [
-        'animals.read',
-        'adoptions.own',
-        'notifications.own',
-        'profile.own'
-      ]
+        "animals.read",
+        "adoptions.own",
+        "notifications.own",
+        "profile.own",
+      ],
     };
 
     const userPermissions = permissions[user.role] || [];
-    
+
     // Admin tem acesso total
-    if (userPermissions.includes('*')) return true;
-    
+    if (userPermissions.includes("*")) return true;
+
     // Verificar permissões específicas
-    return userPermissions.some(permission => {
-      if (permission.endsWith('.*')) {
+    return userPermissions.some((permission) => {
+      if (permission.endsWith(".*")) {
         return resource.startsWith(permission.slice(0, -2));
       }
       return permission === resource;
@@ -232,10 +251,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const redirectBasedOnRole = (role: UserRole) => {
     const redirectMap: Record<UserRole, string> = {
-      ADMIN: '/admin/dashboard',
-      FUNCIONARIO: '/staff/dashboard',
-      VETERINARIO: '/vet/dashboard',
-      CIDADAO: '/citizen/dashboard'
+      ADMIN: "/admin/dashboard",
+      FUNCIONARIO: "/staff/dashboard",
+      VETERINARIO: "/vet/dashboard",
+      CIDADAO: "/citizen/dashboard",
     };
 
     router.push(redirectMap[role]);
@@ -248,20 +267,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     hasRole,
-    canAccess
+    canAccess,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
 }
@@ -270,42 +285,68 @@ export function useAuth() {
 export function useRequireAuth(requiredRoles?: UserRole | UserRole[]) {
   const { user, isLoading, hasRole } = useAuth();
   const router = useRouter();
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
     if (isLoading) {
-      console.log('[useRequireAuth] Still loading, waiting...');
+      console.log("[useRequireAuth] Still loading, waiting...");
+      return;
+    }
+
+    // Prevent multiple redirects
+    if (hasChecked) {
       return;
     }
 
     // Not logged in
     if (!user) {
-      console.log('[useRequireAuth] No user found, redirecting to login');
-      router.push('/auth/login');
+      console.log("[useRequireAuth] No user found, redirecting to login");
+      setHasChecked(true);
+      router.push("/auth/login");
       return;
     }
 
     // Check role if required
     if (requiredRoles) {
-      // Add small delay to ensure user is fully loaded
-      const timer = setTimeout(() => {
-        const authorized = hasRole(requiredRoles);
-        console.log('[useRequireAuth] User role:', user.role, 'Required:', requiredRoles, 'Authorized:', authorized);
-        
-        if (!authorized) {
-          console.log('[useRequireAuth] User not authorized, redirecting to unauthorized');
-          router.push('/unauthorized');
-          return;
-        }
-        
-        console.log('[useRequireAuth] User authorized:', user.email, 'Role:', user.role);
-      }, 50);
+      const authorized = hasRole(requiredRoles);
+      console.log(
+        "[useRequireAuth] User role:",
+        user.role,
+        "Required:",
+        requiredRoles,
+        "Authorized:",
+        authorized,
+      );
 
-      return () => clearTimeout(timer);
+      if (!authorized) {
+        console.log(
+          "[useRequireAuth] User not authorized, redirecting to unauthorized",
+        );
+        setHasChecked(true);
+        router.push("/unauthorized");
+        return;
+      }
+
+      console.log(
+        "[useRequireAuth] User authorized:",
+        user.email,
+        "Role:",
+        user.role,
+      );
+    } else {
+      console.log(
+        "[useRequireAuth] User authorized (no role check):",
+        user.email,
+      );
     }
 
-    console.log('[useRequireAuth] User authorized (no role check):', user.email);
-  }, [user, isLoading, requiredRoles, hasRole, router]);
+    setHasChecked(true);
+  }, [user, isLoading, requiredRoles, hasRole, router, hasChecked]);
 
-  return { user, isLoading, isAuthorized: !requiredRoles || (user && hasRole(requiredRoles)) };
+  return {
+    user,
+    isLoading,
+    isAuthorized: !requiredRoles || (user && hasRole(requiredRoles)),
+  };
 }

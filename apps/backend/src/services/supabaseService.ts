@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 interface SupabaseConfig {
   url: string;
@@ -15,16 +15,19 @@ class SupabaseService {
     this.config = {
       url: process.env.SUPABASE_URL!,
       anonKey: process.env.SUPABASE_ANON_KEY!,
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
     };
 
     // Client for regular operations (with RLS)
     this.client = createClient(this.config.url, this.config.anonKey);
-    
-    // Admin client for bypassing RLS when needed
-    this.adminClient = createClient(this.config.url, this.config.serviceRoleKey);
 
-    console.log('✅ Supabase Service initialized');
+    // Admin client for bypassing RLS when needed
+    this.adminClient = createClient(
+      this.config.url,
+      this.config.serviceRoleKey,
+    );
+
+    console.log("✅ Supabase Service initialized");
   }
 
   // Get regular client (with RLS)
@@ -39,30 +42,30 @@ class SupabaseService {
 
   // Animals operations
   async getAnimals(filters?: any) {
-    const query = this.client
-      .from('animals')
-      .select(`
+    const query = this.client.from("animals").select(`
         *,
         municipality:municipalities(name, state),
         procedures:procedures(*)
       `);
 
     if (filters?.status) {
-      query.eq('status', filters.status);
+      query.eq("status", filters.status);
     }
 
     if (filters?.species) {
-      query.eq('species', filters.species);
+      query.eq("species", filters.species);
     }
 
     if (filters?.municipality_id) {
-      query.eq('municipality_id', filters.municipality_id);
+      query.eq("municipality_id", filters.municipality_id);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
-      console.error('❌ Error fetching animals:', error);
+      console.error("❌ Error fetching animals:", error);
       throw error;
     }
 
@@ -71,13 +74,13 @@ class SupabaseService {
 
   async createAnimal(animalData: any) {
     const { data, error } = await this.client
-      .from('animals')
+      .from("animals")
       .insert([animalData])
       .select()
       .single();
 
     if (error) {
-      console.error('❌ Error creating animal:', error);
+      console.error("❌ Error creating animal:", error);
       throw error;
     }
 
@@ -86,14 +89,14 @@ class SupabaseService {
 
   async updateAnimal(id: string, updates: any) {
     const { data, error } = await this.client
-      .from('animals')
+      .from("animals")
       .update(updates)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
     if (error) {
-      console.error('❌ Error updating animal:', error);
+      console.error("❌ Error updating animal:", error);
       throw error;
     }
 
@@ -109,14 +112,25 @@ class SupabaseService {
         { count: adoptedAnimals },
         { count: totalMunicipalities },
         { count: totalUsers },
-        { count: totalAdoptions }
+        { count: totalAdoptions },
       ] = await Promise.all([
-        this.client.from('animals').select('*', { count: 'exact', head: true }),
-        this.client.from('animals').select('*', { count: 'exact', head: true }).eq('status', 'DISPONIVEL'),
-        this.client.from('animals').select('*', { count: 'exact', head: true }).eq('status', 'ADOTADO'),
-        this.client.from('municipalities').select('*', { count: 'exact', head: true }).eq('active', true),
-        this.client.from('users').select('*', { count: 'exact', head: true }),
-        this.client.from('adoptions').select('*', { count: 'exact', head: true })
+        this.client.from("animals").select("*", { count: "exact", head: true }),
+        this.client
+          .from("animals")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "DISPONIVEL"),
+        this.client
+          .from("animals")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "ADOTADO"),
+        this.client
+          .from("municipalities")
+          .select("*", { count: "exact", head: true })
+          .eq("active", true),
+        this.client.from("users").select("*", { count: "exact", head: true }),
+        this.client
+          .from("adoptions")
+          .select("*", { count: "exact", head: true }),
       ]);
 
       return {
@@ -126,30 +140,35 @@ class SupabaseService {
         totalMunicipalities: totalMunicipalities || 0,
         totalUsers: totalUsers || 0,
         totalAdoptions: totalAdoptions || 0,
-        adoptionRate: (totalAnimals || 0) > 0 ? (((adoptedAnimals || 0) / (totalAnimals || 1)) * 100).toFixed(1) : '0'
+        adoptionRate:
+          (totalAnimals || 0) > 0
+            ? (((adoptedAnimals || 0) / (totalAnimals || 1)) * 100).toFixed(1)
+            : "0",
       };
     } catch (error) {
-      console.error('❌ Error fetching dashboard stats:', error);
+      console.error("❌ Error fetching dashboard stats:", error);
       throw error;
     }
   }
 
   // Users operations
   async getUsers(filters?: any) {
-    const query = this.adminClient.from('users').select('*');
+    const query = this.adminClient.from("users").select("*");
 
     if (filters?.role) {
-      query.eq('role', filters.role);
+      query.eq("role", filters.role);
     }
 
     if (filters?.active !== undefined) {
-      query.eq('is_active', filters.active);
+      query.eq("active", filters.active);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
-      console.error('❌ Error fetching users:', error);
+      console.error("❌ Error fetching users:", error);
       throw error;
     }
 
@@ -159,13 +178,13 @@ class SupabaseService {
   // Municipalities operations
   async getMunicipalities() {
     const { data, error } = await this.client
-      .from('municipalities')
-      .select('*')
-      .eq('active', true)
-      .order('name');
+      .from("municipalities")
+      .select("*")
+      .eq("active", true)
+      .order("name");
 
     if (error) {
-      console.error('❌ Error fetching municipalities:', error);
+      console.error("❌ Error fetching municipalities:", error);
       throw error;
     }
 
@@ -174,22 +193,22 @@ class SupabaseService {
 
   // Adoptions operations
   async getAdoptions(filters?: any) {
-    const query = this.client
-      .from('adoptions')
-      .select(`
+    const query = this.client.from("adoptions").select(`
         *,
         animal:animals(*),
         tutor:tutors(*)
       `);
 
     if (filters?.status) {
-      query.eq('status', filters.status);
+      query.eq("status", filters.status);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
-      console.error('❌ Error fetching adoptions:', error);
+      console.error("❌ Error fetching adoptions:", error);
       throw error;
     }
 
@@ -200,19 +219,19 @@ class SupabaseService {
   async testConnection() {
     try {
       const { data, error } = await this.client
-        .from('municipalities')
-        .select('count')
+        .from("municipalities")
+        .select("count")
         .limit(1);
 
       if (error) {
-        console.error('❌ Supabase connection test failed:', error);
+        console.error("❌ Supabase connection test failed:", error);
         return false;
       }
 
-      console.log('✅ Supabase connection test successful');
+      console.log("✅ Supabase connection test successful");
       return true;
     } catch (error) {
-      console.error('❌ Supabase connection test error:', error);
+      console.error("❌ Supabase connection test error:", error);
       return false;
     }
   }

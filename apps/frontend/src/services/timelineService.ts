@@ -204,10 +204,8 @@ class TimelineService {
         title: `Procedimento: ${procedureType}`,
         description,
         metadata: {
-          animalId,
-          procedureType,
-          veterinarian
-        }
+          animalId
+        } as any
       });
     } catch (error) {
       console.error('❌ Erro ao registrar procedimento:', error);

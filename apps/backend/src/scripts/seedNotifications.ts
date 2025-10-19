@@ -33,8 +33,8 @@ async function seedNotifications() {
         data: {
           animalId: animals[0].id,
           tutorId: citizenUser.id,
-          status: 'PENDENTE',
-          notes: 'Tenho experiência com cães e gostaria muito de adotar este animal.'
+          status: 'SOLICITADA',
+          interestReason: 'Tenho experiência com cães e gostaria muito de adotar este animal.'
         }
       });
 
@@ -137,29 +137,23 @@ async function seedNotifications() {
     if (citizenUser) {
       await prisma.notification.create({
         data: {
-          title: 'Documentação Pendente',
-          message: 'Você possui documentos pendentes para finalizar seu processo de adoção. Clique para ver detalhes.',
-          type: 'ALERT',
-          category: 'ADOCAO',
-          priority: 'URGENT',
-          userId: citizenUser.id,
-          actionType: 'VIEW',
-          actionUrl: '/citizen/documents',
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+          titulo: 'Documentação Pendente',
+          conteudo: 'Você possui documentos pendentes para finalizar seu processo de adoção. Clique para ver detalhes.',
+          tipo: 'EMAIL',
+          categoria: 'ADOCAO',
+          prioridade: 'URGENTE',
+          userId: citizenUser.id
         }
       });
 
       await prisma.notification.create({
         data: {
-          title: 'Nova Campanha de Vacinação',
-          message: 'Campanha de vacinação gratuita acontecerá no próximo sábado. Inscreva seu pet!',
-          type: 'INFO',
-          category: 'CAMPANHA',
-          priority: 'MEDIUM',
-          userId: citizenUser.id,
-          actionType: 'REDIRECT',
-          actionUrl: '/campaigns/vaccination',
-          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days
+          titulo: 'Nova Campanha de Vacinação',
+          conteudo: 'Campanha de vacinação gratuita acontecerá no próximo sábado. Inscreva seu pet!',
+          tipo: 'EMAIL',
+          categoria: 'CAMPANHA',
+          prioridade: 'MEDIA',
+          userId: citizenUser.id
         }
       });
     }
@@ -168,14 +162,12 @@ async function seedNotifications() {
     if (staffUser) {
       await prisma.notification.create({
         data: {
-          title: 'Relatório Mensal Pendente',
-          message: 'O relatório mensal de atividades precisa ser enviado até o final da semana.',
-          type: 'TASK',
-          category: 'SISTEMA',
-          priority: 'HIGH',
-          userId: staffUser.id,
-          actionType: 'COMPLETE',
-          actionUrl: '/staff/reports/monthly'
+          titulo: 'Relatório Mensal Pendente',
+          conteudo: 'O relatório mensal de atividades precisa ser enviado até o final da semana.',
+          tipo: 'EMAIL',
+          categoria: 'SISTEMA',
+          prioridade: 'ALTA',
+          userId: staffUser.id
         }
       });
     }
@@ -190,8 +182,8 @@ async function seedNotifications() {
       await prisma.notification.update({
         where: { id: notification.id },
         data: {
-          status: 'read',
-          readAt: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000) // Random time in last 24h
+          visualizada: true,
+          dataVisualizacao: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000) // Random time in last 24h
         }
       });
     }

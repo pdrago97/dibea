@@ -1,6 +1,7 @@
 // Prisma schema for DIBEA - Exact match with Supabase migrations
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -19,23 +20,31 @@ enum UserRole {
   VETERINARIO
   ADMIN
   SUPER_ADMIN
+
+  @@map("user_role")
 }
 
 enum AnimalSpecies {
   CANINO
   FELINO
   OUTROS
+
+  @@map("animal_species")
 }
 
 enum AnimalSex {
   MACHO
   FEMEA
+
+  @@map("animal_sex")
 }
 
 enum AnimalSize {
   PEQUENO
   MEDIO
   GRANDE
+
+  @@map("animal_size")
 }
 
 enum AnimalStatus {
@@ -44,6 +53,8 @@ enum AnimalStatus {
   EM_TRATAMENTO
   OBITO
   PERDIDO
+
+  @@map("animal_status")
 }
 
 enum AdoptionStatus {
@@ -53,6 +64,8 @@ enum AdoptionStatus {
   REJEITADA
   CONCLUIDA
   CANCELADA
+
+  @@map("adoption_status")
 }
 
 enum AppointmentStatus {
@@ -61,6 +74,8 @@ enum AppointmentStatus {
   REALIZADO
   CANCELADO
   FALTOU
+
+  @@map("appointment_status")
 }
 
 enum CampaignStatus {
@@ -69,6 +84,8 @@ enum CampaignStatus {
   EM_ANDAMENTO
   ENCERRADA
   CANCELADA
+
+  @@map("campaign_status")
 }
 
 enum ComplaintStatus {
@@ -76,6 +93,8 @@ enum ComplaintStatus {
   EM_ANDAMENTO
   RESOLVIDA
   ARQUIVADA
+
+  @@map("complaint_status")
 }
 
 enum NotificationType {
@@ -83,6 +102,8 @@ enum NotificationType {
   SMS
   WHATSAPP
   PUSH
+
+  @@map("notification_type")
 }
 
 enum NotificationPriority {
@@ -90,6 +111,8 @@ enum NotificationPriority {
   MEDIA
   ALTA
   URGENTE
+
+  @@map("notification_priority")
 }
 
 enum ElevationRequestStatus {
@@ -149,7 +172,6 @@ model Municipality {
 
 model User {
   id            String   @id @default(uuid())
-  name          String?
   email         String?  @unique
   phone         String?  @unique
   passwordHash  String?  @map("password_hash")
@@ -158,10 +180,11 @@ model User {
   whatsappId    String?  @map("whatsapp_id")
   whatsappVerified Boolean @default(false) @map("whatsapp_verified")
   municipalityId String? @map("municipality_id")
-  isActive      Boolean  @default(true) @map("is_active")
+  active        Boolean  @default(true)
   lastLogin     DateTime? @map("last_login")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+  name          String?  @map("name")
 
   // Relations
   municipality  Municipality? @relation(fields: [municipalityId], references: [id])

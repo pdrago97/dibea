@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -36,7 +36,9 @@ export default function CitizenLayout({ children }: CitizenLayoutProps) {
   const pathname = usePathname();
 
   // Listen for Cmd+K / Ctrl+K
-  useState(() => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -45,7 +47,7 @@ export default function CitizenLayout({ children }: CitizenLayoutProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  });
+  }, []);
 
   const navigation = [
     { 
@@ -274,8 +276,8 @@ export default function CitizenLayout({ children }: CitizenLayoutProps) {
             </div>
 
             {/* User Avatar - Clickable */}
-            <button 
-              onClick={() => window.location.href = '/citizen/profile'}
+            <button
+              onClick={() => { if (typeof window !== 'undefined') window.location.href = '/citizen/profile'; }}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
               <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">

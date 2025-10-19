@@ -1,9 +1,9 @@
-import { createWorker } from 'tesseract.js';
-import sharp from 'sharp';
-import pdf from 'pdf-parse';
-import mammoth from 'mammoth';
-import OpenAI from 'openai';
-import { logger } from '../utils/logger';
+import { createWorker } from "tesseract.js";
+import sharp from "sharp";
+import pdf from "pdf-parse";
+import mammoth from "mammoth";
+import OpenAI from "openai";
+import { logger } from "../utils/logger";
 
 export interface DocumentAnalysisResult {
   extractedText: string;
@@ -27,7 +27,7 @@ export interface DocumentAnalysisResult {
     summary: string;
     keyFindings: string[];
     recommendations: string[];
-    urgencyLevel: 'low' | 'medium' | 'high';
+    urgencyLevel: "low" | "medium" | "high";
   };
 }
 
@@ -46,7 +46,7 @@ export interface ImageAnalysisResult {
   conditions: Array<{
     condition: string;
     confidence: number;
-    severity: 'mild' | 'moderate' | 'severe';
+    severity: "mild" | "moderate" | "severe";
   }>;
   metadata: {
     imageQuality: number;
@@ -60,17 +60,25 @@ class DocumentAnalysisService {
   private tesseractWorker: any;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    const apiKey = process.env.OPENAI_API_KEY;
+    // Only initialize OpenAI client if API key is provided and not a placeholder
+    if (apiKey && !apiKey.includes("placeholder")) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    } else {
+      logger.warn(
+        "OpenAI API key not provided or is placeholder - AI features will be disabled",
+      );
+    }
   }
 
   async initialize(): Promise<void> {
     try {
-      this.tesseractWorker = await createWorker('por');
-      logger.info('✅ Document Analysis Service initialized');
+      this.tesseractWorker = await createWorker("por");
+      logger.info("✅ Document Analysis Service initialized");
     } catch (error) {
-      logger.error('❌ Failed to initialize Document Analysis Service:', error);
+      logger.error("❌ Failed to initialize Document Analysis Service:", error);
       throw error;
     }
   }
@@ -86,16 +94,18 @@ class DocumentAnalysisService {
     try {
       // Optimize image for OCR
       const optimizedImage = await sharp(imageBuffer)
-        .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+        .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
         .grayscale()
         .normalize()
         .sharpen()
         .toBuffer();
 
-      const { data: { text } } = await this.tesseractWorker.recognize(optimizedImage);
+      const {
+        data: { text },
+      } = await this.tesseractWorker.recognize(optimizedImage);
       return text.trim();
     } catch (error) {
-      logger.error('Error extracting text from image:', error);
+      logger.error("Error extracting text from image:", error);
       throw error;
     }
   }
@@ -106,7 +116,7 @@ class DocumentAnalysisService {
       const data = await pdf(pdfBuffer);
       return data.text;
     } catch (error) {
-      logger.error('Error extracting text from PDF:', error);
+      logger.error("Error extracting text from PDF:", error);
       throw error;
     }
   }
@@ -117,7 +127,7 @@ class DocumentAnalysisService {
       const result = await mammoth.extractRawText({ buffer: docBuffer });
       return result.value;
     } catch (error) {
-      logger.error('Error extracting text from Word document:', error);
+      logger.error("Error extracting text from Word document:", error);
       throw error;
     }
   }
@@ -125,9 +135,13 @@ class DocumentAnalysisService {
   // Analyze image for visual conditions and objects
   async analyzeImage(imageBuffer: Buffer): Promise<ImageAnalysisResult> {
     try {
+      // Check if OpenAI client is initialized
+      if (!this.openai) {
+        throw new Error("OpenAI client not initialized - AI features disabled");
+      }
       // Convert image to base64 for OpenAI Vision API
-      const base64Image = imageBuffer.toString('base64');
-      
+      const base64Image = imageBuffer.toString("base64");
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4-vision-preview",
         messages: [
@@ -142,62 +156,78 @@ class DocumentAnalysisService {
                 3. Objects or body parts visible
                 4. Assessment of image quality
                 
-                Focus on medical/veterinary aspects. Be specific about any conditions you observe.`
+                Focus on medical/veterinary aspects. Be specific about any conditions you observe.`,
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`
-                }
-              }
-            ]
-          }
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                },
+              },
+            ],
+          },
         ],
-        max_tokens: 1000
+        max_tokens: 1000,
       });
 
-      const analysis = response.choices[0].message.content || '';
-      
+      const analysis = response.choices[0].message.content || "";
+
       // Parse the analysis to extract structured data
       return this.parseImageAnalysis(analysis, imageBuffer);
     } catch (error) {
-      logger.error('Error analyzing image:', error);
+      logger.error("Error analyzing image:", error);
       throw error;
     }
   }
 
   // Process document text with NLP
   async processDocumentText(
-    text: string, 
-    documentType: 'medical_report' | 'prescription' | 'invoice' | 'certificate' | 'photo'
+    text: string,
+    documentType:
+      | "medical_record"
+      | "prescription"
+      | "invoice"
+      | "certificate"
+      | "photo",
   ): Promise<DocumentAnalysisResult> {
     const startTime = Date.now();
 
     try {
+      // Check if OpenAI client is initialized
+      if (!this.openai) {
+        throw new Error("OpenAI client not initialized - AI features disabled");
+      }
+
       const prompt = this.buildAnalysisPrompt(text, documentType);
-      
+
       const response = await this.openai.chat.completions.create({
         model: "gpt-4",
         messages: [
           {
             role: "system",
-            content: "You are a veterinary AI assistant specialized in analyzing veterinary documents. Extract structured information and provide insights."
+            content:
+              "You are a veterinary AI assistant specialized in analyzing veterinary documents. Extract structured information and provide insights.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         max_tokens: 2000,
-        temperature: 0.1
+        temperature: 0.1,
       });
 
-      const analysis = response.choices[0].message.content || '';
+      const analysis = response.choices[0].message.content || "";
       const processingTime = Date.now() - startTime;
 
-      return this.parseDocumentAnalysis(text, analysis, documentType, processingTime);
+      return this.parseDocumentAnalysis(
+        text,
+        analysis,
+        documentType,
+        processingTime,
+      );
     } catch (error) {
-      logger.error('Error processing document text:', error);
+      logger.error("Error processing document text:", error);
       throw error;
     }
   }
@@ -236,7 +266,7 @@ Return only valid JSON.`;
     originalText: string,
     analysis: string,
     documentType: string,
-    processingTime: number
+    processingTime: number,
   ): Promise<DocumentAnalysisResult> {
     try {
       // Try to parse JSON from the analysis
@@ -253,24 +283,24 @@ Return only valid JSON.`;
           locations: parsedData.locations || [],
           symptoms: parsedData.symptoms || [],
           diagnoses: parsedData.diagnoses || [],
-          veterinarians: parsedData.veterinarians || []
+          veterinarians: parsedData.veterinarians || [],
         },
         metadata: {
           confidence: parsedData.confidence || 0.5,
-          language: 'pt-BR',
+          language: "pt-BR",
           documentType,
-          processingTime
+          processingTime,
         },
         insights: {
-          summary: parsedData.summary || 'Documento veterinário processado',
+          summary: parsedData.summary || "Documento veterinário processado",
           keyFindings: parsedData.keyFindings || [],
           recommendations: parsedData.recommendations || [],
-          urgencyLevel: parsedData.urgencyLevel || 'low'
-        }
+          urgencyLevel: parsedData.urgencyLevel || "low",
+        },
       };
     } catch (error) {
-      logger.error('Error parsing document analysis:', error);
-      
+      logger.error("Error parsing document analysis:", error);
+
       // Return basic analysis if parsing fails
       return {
         extractedText: originalText,
@@ -282,28 +312,31 @@ Return only valid JSON.`;
           locations: [],
           symptoms: [],
           diagnoses: [],
-          veterinarians: []
+          veterinarians: [],
         },
         metadata: {
           confidence: 0.3,
-          language: 'pt-BR',
+          language: "pt-BR",
           documentType,
-          processingTime
+          processingTime,
         },
         insights: {
-          summary: 'Análise automática do documento',
+          summary: "Análise automática do documento",
           keyFindings: [],
           recommendations: [],
-          urgencyLevel: 'low'
-        }
+          urgencyLevel: "low",
+        },
       };
     }
   }
 
-  private async parseImageAnalysis(analysis: string, imageBuffer: Buffer): Promise<ImageAnalysisResult> {
+  private async parseImageAnalysis(
+    analysis: string,
+    imageBuffer: Buffer,
+  ): Promise<ImageAnalysisResult> {
     // Get image metadata
     const metadata = await sharp(imageBuffer).metadata();
-    
+
     return {
       description: analysis,
       objects: [], // Would be populated by more sophisticated image analysis
@@ -311,8 +344,8 @@ Return only valid JSON.`;
       metadata: {
         imageQuality: 0.8, // Placeholder - would be calculated
         resolution: `${metadata.width}x${metadata.height}`,
-        colorProfile: metadata.space || 'unknown'
-      }
+        colorProfile: metadata.space || "unknown",
+      },
     };
   }
 
@@ -320,21 +353,21 @@ Return only valid JSON.`;
   async analyzeDocument(
     fileBuffer: Buffer,
     fileName: string,
-    mimeType: string
+    mimeType: string,
   ): Promise<DocumentAnalysisResult> {
-    let extractedText = '';
-    let documentType: any = 'certificate';
+    let extractedText = "";
+    let documentType: any = "certificate";
 
     try {
       // Determine document type from filename and content
       documentType = this.determineDocumentType(fileName, mimeType);
 
       // Extract text based on file type
-      if (mimeType.startsWith('image/')) {
+      if (mimeType.startsWith("image/")) {
         extractedText = await this.extractTextFromImage(fileBuffer);
-      } else if (mimeType === 'application/pdf') {
+      } else if (mimeType === "application/pdf") {
         extractedText = await this.extractTextFromPDF(fileBuffer);
-      } else if (mimeType.includes('word') || mimeType.includes('document')) {
+      } else if (mimeType.includes("word") || mimeType.includes("document")) {
         extractedText = await this.extractTextFromWord(fileBuffer);
       } else {
         throw new Error(`Unsupported file type: ${mimeType}`);
@@ -343,24 +376,33 @@ Return only valid JSON.`;
       // Process the extracted text
       return await this.processDocumentText(extractedText, documentType);
     } catch (error) {
-      logger.error('Error analyzing document:', error);
+      logger.error("Error analyzing document:", error);
       throw error;
     }
   }
 
   private determineDocumentType(fileName: string, mimeType: string): string {
     const lowerFileName = fileName.toLowerCase();
-    
-    if (lowerFileName.includes('receita') || lowerFileName.includes('prescription')) {
-      return 'prescription';
-    } else if (lowerFileName.includes('laudo') || lowerFileName.includes('report')) {
-      return 'medical_report';
-    } else if (lowerFileName.includes('nota') || lowerFileName.includes('invoice')) {
-      return 'invoice';
-    } else if (mimeType.startsWith('image/')) {
-      return 'photo';
+
+    if (
+      lowerFileName.includes("receita") ||
+      lowerFileName.includes("prescription")
+    ) {
+      return "prescription";
+    } else if (
+      lowerFileName.includes("laudo") ||
+      lowerFileName.includes("report")
+    ) {
+      return "medical_report";
+    } else if (
+      lowerFileName.includes("nota") ||
+      lowerFileName.includes("invoice")
+    ) {
+      return "invoice";
+    } else if (mimeType.startsWith("image/")) {
+      return "photo";
     } else {
-      return 'certificate';
+      return "certificate";
     }
   }
 }

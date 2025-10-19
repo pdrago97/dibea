@@ -87,6 +87,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20) UNIQUE,
     password_hash VARCHAR(255),
+    name VARCHAR(255),
     
     -- Role e perfil
     role user_role NOT NULL DEFAULT 'CIDADAO',

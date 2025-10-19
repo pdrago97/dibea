@@ -32,7 +32,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Dashboard principal',
       icon: Home,
       category: 'Navegação',
-      action: () => window.location.href = '/citizen/dashboard',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/dashboard'; },
       keywords: ['dashboard', 'home', 'inicio']
     },
     {
@@ -41,7 +41,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Encontre seu novo amigo',
       icon: Search,
       category: 'Navegação',
-      action: () => window.location.href = '/animals/search',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/animals/search'; },
       keywords: ['buscar', 'procurar', 'adotar']
     },
     {
@@ -50,7 +50,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Acompanhe suas adoções',
       icon: Heart,
       category: 'Navegação',
-      action: () => window.location.href = '/citizen/adoptions',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/adoptions'; },
       keywords: ['processos', 'adocoes', 'andamento']
     },
     {
@@ -59,7 +59,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Animais já adotados',
       icon: PawPrint,
       category: 'Navegação',
-      action: () => window.location.href = '/citizen/animals',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/animals'; },
       keywords: ['meus', 'animais', 'pets']
     },
     {
@@ -68,7 +68,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Certificados e comprovantes',
       icon: FileText,
       category: 'Navegação',
-      action: () => window.location.href = '/citizen/documents',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/documents'; },
       keywords: ['documentos', 'certificados', 'rga']
     },
     {
@@ -77,10 +77,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Consultas e procedimentos',
       icon: Calendar,
       category: 'Navegação',
-      action: () => window.location.href = '/citizen/appointments',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/appointments'; },
       keywords: ['agendamentos', 'consultas', 'veterinario']
     },
-    
+
     // Ações Rápidas
     {
       id: 'action-chat',
@@ -88,7 +88,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Fale com o suporte',
       icon: TrendingUp,
       category: 'Ações',
-      action: () => window.location.href = '/citizen/chat',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/chat'; },
       keywords: ['chat', 'suporte', 'ajuda', 'falar']
     },
     {
@@ -97,7 +97,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       description: 'Ver e editar informações',
       icon: Users,
       category: 'Ações',
-      action: () => window.location.href = '/citizen/profile',
+      action: () => { if (typeof window !== 'undefined') window.location.href = '/citizen/profile'; },
       keywords: ['perfil', 'conta', 'configuracoes']
     }
   ], []);
